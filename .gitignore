@@ -1,0 +1,15 @@
+# macOS
+.DS_Store
+
+# Xcode
+xcuserdata/
+*.xcscmblueprint
+DerivedData/
+
+# SwiftPM
+.build/
+.swiftpm/
+Package.resolved
+
+# misc
+*.log
