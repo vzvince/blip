@@ -2,12 +2,13 @@ import XCTest
 @testable import Blip
 final class InboxHTMLRendererTests: XCTestCase {
     func testRowsRenderWithClickableOnclick() {
-        let rows = [RowViewModel(id:"cmux:s", sourceLabel:"Codex", title:"Codex", subtitle:"Waiting",
+        let rows = [RowViewModel(id:"cmux:s", sourceLabel:"Codex Engine", title:"Codex", subtitle:"Waiting",
                                  body:"needs input", unreadCount:2, isPriority:false, jumpID:"n2")]
         let html = InboxHTMLRenderer.render(rows: rows, unreadCount: 2, port: 9042)
         XCTAssertTrue(html.contains("fetch('http://127.0.0.1:9042/jump?id=cmux:s')"))
-        XCTAssertTrue(html.contains("Codex"))
-        XCTAssertTrue(html.contains("needs input"))
+        XCTAssertTrue(html.contains("Codex Engine"))   // sourceLabel now distinct & asserted
+        XCTAssertTrue(html.contains("Codex"))           // title
+        XCTAssertTrue(html.contains("needs input"))      // body
         XCTAssertLessThanOrEqual(html.utf8.count, 20000)
     }
     func testEmptyState() {

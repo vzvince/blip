@@ -25,7 +25,7 @@ public enum InboxHTMLRenderer {
             let countBadge = r.unreadCount > 1 ? "<span style='background:#444;color:#fff;border-radius:8px;padding:1px 6px;font-size:11px;margin-left:6px'>\(esc(String(r.unreadCount)))</span>" : ""
             out += """
             <div onclick="fetch('\(url)')" style="cursor:pointer;padding:8px;border-radius:8px;border:1px solid #2a2a2a;margin-bottom:6px">
-              <div style="font-weight:600">\(dot) \(esc(r.title))\(countBadge)</div>
+              <div style="font-weight:600"><span style="color:#8e8e93;font-size:11px">\(esc(r.sourceLabel))</span> \(dot) \(esc(r.title))\(countBadge)</div>
               <div style="color:#aaa;font-size:12px">\(esc(r.subtitle))</div>
               <div style="color:#ddd;font-size:13px;margin-top:2px">\(esc(r.body))</div>
             </div>
