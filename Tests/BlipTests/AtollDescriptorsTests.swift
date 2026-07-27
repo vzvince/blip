@@ -62,6 +62,47 @@ final class AtollDescriptorsTests: XCTestCase {
         }
     }
 
+
+    func testTabUsesNativeRenderingInsteadOfTallEmbeddedWebViewInAtoll() {
+        let rows = [RowViewModel(id:"n1", sourceLabel:"Codex", title:"Needs input", subtitle:"1m ago",
+                                 body:"Please review", unreadCount: 1, isPriority: false, jumpID: "n1")]
+        let d = AtollDescriptors.tab(rows: rows, unreadCount: 1, port: 9042)
+
+        XCTAssertNil(d.tab?.webContent, "Atoll tab should not embed a tall web view because Atoll clamps tab height and clips the inbox")
+    }
+
+    func testTabRequestsMaximumAtollHeightForReadableInbox() {
+        let d = AtollDescriptors.tab(rows: [], unreadCount: 0, port: 9042)
+
+        XCTAssertEqual(d.tab?.preferredHeight, 420, "Atoll clamps extension tabs; request the maximum supported height so the island expands as much as Atoll allows")
+    }
+
+    func testTabProvidesNativeSectionsSoAtollDoesNotRenderEmptyWhenWebContentIsUnavailable() {
+        let rows = [
+            RowViewModel(id:"n1", sourceLabel:"Codex", title:"Needs input", subtitle:"1m ago",
+                         body:"Please review the generated plan", unreadCount: 1, isPriority: false, jumpID: "n1")
+        ]
+
+        let d = AtollDescriptors.tab(rows: rows, unreadCount: 1, port: 9042)
+
+        guard let tab = d.tab else { return XCTFail("tab descriptor should include tab configuration") }
+        XCTAssertFalse(tab.sections.isEmpty, "tab should include native sections as a fallback when Atoll web content is not selected or fails to render")
+        let encoded = try! JSONEncoder().encode(tab.sections)
+        let json = String(data: encoded, encoding: .utf8)!
+        XCTAssertTrue(json.contains("Needs input"), "native fallback should include latest notification title")
+        XCTAssertTrue(json.contains("Please review the generated plan"), "native fallback should include latest notification body")
+    }
+
+    func testTabProvidesNativeAllClearSectionWhenInboxIsEmpty() {
+        let d = AtollDescriptors.tab(rows: [], unreadCount: 0, port: 9042)
+
+        guard let tab = d.tab else { return XCTFail("tab descriptor should include tab configuration") }
+        XCTAssertFalse(tab.sections.isEmpty, "empty inbox should still render native content instead of a blank Atoll panel")
+        let encoded = try! JSONEncoder().encode(tab.sections)
+        let json = String(data: encoded, encoding: .utf8)!
+        XCTAssertTrue(json.contains("All clear"), "native fallback should make the empty state visible")
+    }
+
     func testTabWithInlineListIsValid() {
         let rows = [RowViewModel(id:"cmux:s", sourceLabel:"Codex", title:"Codex", subtitle:"Waiting",
                                  body:"input", unreadCount: 1, isPriority: false, jumpID: "n")]
