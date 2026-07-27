@@ -3,7 +3,8 @@ import Foundation
 
 public struct BlipConfig: Codable {
     public var port: Int = 9042
-    public var cmuxSocket: String = ProcessInfo.processInfo.environment["CMUX_SOCKET_PATH"] ?? "/tmp/cmux.sock"
+    public var cmuxSocket: String = ProcessInfo.processInfo.environment["CMUX_SOCKET_PATH"]
+        ?? "\(NSHomeDirectory())/.local/state/cmux/cmux.sock"   // cmux 26.x default; older builds used /tmp/cmux.sock
     public var cmuxUseHookPush: Bool = false
     public var pollIntervalSeconds: Double = 1.5
     public var sources: [String] = ["cmux"]
