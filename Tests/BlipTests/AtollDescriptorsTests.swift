@@ -36,6 +36,32 @@ final class AtollDescriptorsTests: XCTestCase {
         }
     }
 
+
+    func testCollapsedIndicatorUsesBlipAppIconAndSneakPeekOnEveryUpdate() {
+        let d = AtollDescriptors.collapsed(unreadCount: 3,
+            latest: AgentNotification(id:"n", source:"cmux", title:"Codex", body:"input"))
+        switch d.leadingIcon {
+        case .appIcon(let bundleIdentifier, _, _):
+            XCTAssertFalse(bundleIdentifier.isEmpty)
+        default:
+            XCTFail("collapsed island should use the Blip app icon instead of a generic SF symbol")
+        }
+        XCTAssertEqual(d.sneakPeekConfig?.showOnUpdate, true, "updates to an existing Atoll activity must still show the message sneak peek")
+    }
+
+    func testTabUsesBlipAppIconBadgeForRecognizableTabButton() {
+        let d = AtollDescriptors.tab(rows: [], unreadCount: 1, port: 9042)
+        guard let badgeIcon = d.tab?.badgeIcon else {
+            return XCTFail("tab should use the Blip app icon so Atoll's tab selector is recognizable")
+        }
+        switch badgeIcon {
+        case .appIcon(let bundleIdentifier, _, _):
+            XCTAssertFalse(bundleIdentifier.isEmpty)
+        default:
+            XCTFail("tab badge icon should be the Blip app icon")
+        }
+    }
+
     func testTabWithInlineListIsValid() {
         let rows = [RowViewModel(id:"cmux:s", sourceLabel:"Codex", title:"Codex", subtitle:"Waiting",
                                  body:"input", unreadCount: 1, isPriority: false, jumpID: "n")]
