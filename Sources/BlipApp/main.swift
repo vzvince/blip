@@ -1,11 +1,17 @@
 // Sources/BlipApp/main.swift
 import SwiftUI
+import Darwin
 import Blip
 import AtollExtensionKit
 
 @main
 struct BlipApp: App {
     @StateObject private var engine = BlipEngine()
+    init() {
+        // Unbuffered stdout/stderr so background/redirected runs (file logs, launchd) stream prints.
+        setvbuf(stdout, nil, _IONBF, 0)
+        setvbuf(stderr, nil, _IONBF, 0)
+    }
     var body: some Scene { Settings { EmptyView() } }
 }
 
