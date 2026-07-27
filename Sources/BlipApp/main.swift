@@ -1,5 +1,6 @@
 // Sources/BlipApp/main.swift
 import SwiftUI
+import AppKit
 import Darwin
 import Blip
 import AtollExtensionKit
@@ -12,7 +13,25 @@ struct BlipApp: App {
         setvbuf(stdout, nil, _IONBF, 0)
         setvbuf(stderr, nil, _IONBF, 0)
     }
-    var body: some Scene { Settings { EmptyView() } }
+    var body: some Scene {
+        MenuBarExtra {
+            Text(engine.status.title)
+                .font(.headline)
+            Text(engine.status.atollLine)
+            Text(engine.status.cmuxLine)
+                .font(.caption)
+            Divider()
+            Button("Send Test Notification") { engine.sendTestNotification() }
+            Button("Clear All") { engine.clearAll() }
+                .disabled(engine.unreadCount == 0)
+            Divider()
+            Button("Quit Blip") { NSApp.terminate(nil) }
+                .keyboardShortcut("q")
+        } label: {
+            Label(engine.status.title, systemImage: engine.status.systemImage)
+        }
+        Settings { EmptyView() }
+    }
 }
 
 /// Adapter making AtollSession (@MainActor) satisfy AtollPresenting.
@@ -31,6 +50,8 @@ final class AtollSessionAdapter: AtollPresenting {
 
 @MainActor
 final class BlipEngine: ObservableObject {
+    @Published private(set) var unreadCount: Int = 0
+
     private let store = Store()
     private let cmux: CmuxRPC
     private let jump: CmuxJumpExecutor
@@ -39,6 +60,13 @@ final class BlipEngine: ObservableObject {
     private let presenter: AtollPresenter
     private var poll: Task<Void, Never>?
     private var config: BlipConfig
+
+    var status: MenuBarStatus {
+        MenuBarStatus(unreadCount: unreadCount,
+                      atollInstalled: AtollSession.shared.isAtollInstalled,
+                      atollRunning: AtollSession.shared.isAtollRunning,
+                      cmuxSocket: config.cmuxSocket)
+    }
 
     init() {
         let cfg = BlipConfig.load(); self.config = cfg
@@ -50,7 +78,9 @@ final class BlipEngine: ObservableObject {
         store.onChange = { [weak self] _ in
             Task { @MainActor in
                 guard let self else { return }
-                self.presenter.reload(unread: self.store.unreadCount, rows: self.store.rows(), connection: .connected)
+                let unread = self.store.unreadCount
+                self.unreadCount = unread
+                self.presenter.reload(unread: unread, rows: self.store.rows(), connection: .connected)
             }
         }
         try? ingress.start()
@@ -76,6 +106,17 @@ final class BlipEngine: ObservableObject {
         }
         startPolling()
     }
+
+    func sendTestNotification() {
+        store.upsert(AgentNotification(id: "menu-test:\(Date().timeIntervalSince1970)",
+                                       source: "blip",
+                                       title: "Blip is running",
+                                       body: "Opened from the menu bar",
+                                       sourceLabel: "Blip"))
+    }
+
+    func clearAll() { action.clearAll() }
+
     private func startPolling() {
         poll = Task { [weak self] in
             while !Task.isCancelled {

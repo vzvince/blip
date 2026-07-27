@@ -6,8 +6,10 @@ export GIT_LFS_SKIP_SMUDGE=1
 APP="Blip.app"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS"
+mkdir -p "$APP/Contents/Resources"
 swift build -c release --product BlipApp
 BINPATH="$(swift build -c release --product BlipApp --show-bin-path 2>/dev/null)" || BINPATH="$(swift build --product BlipApp --show-bin-path 2>/dev/null)"
 cp "$BINPATH/BlipApp" "$APP/Contents/MacOS/BlipApp"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
+cp Resources/Blip.icns "$APP/Contents/Resources/Blip.icns"
 echo "built $APP"

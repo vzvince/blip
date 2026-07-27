@@ -6,6 +6,8 @@
 	<string>BlipApp</string>
 	<key>CFBundleIdentifier</key>
 	<string>dev.blip</string>
+	<key>CFBundleIconFile</key>
+	<string>Blip</string>
 	<key>CFBundleName</key>
 	<string>Blip</string>
 	<key>CFBundlePackageType</key>
