@@ -19,29 +19,48 @@ public enum CmuxMapper {
         for k in keys { if let s = d[k] as? String { return s } }
         return ""
     }
-    /// Maps a `notification.list` response (one of: {items:[...]}, {notifications:[...]}, or a bare array) to model notifications.
-    /// Items with read=true are dropped. Items lacking a surface id cannot be jumped to and are dropped.
+    static func date(_ d: [String:Any]) -> Date {
+        let s = str(d, ["created_at","createdAt","created"])
+        if !s.isEmpty {
+            let iso = ISO8601DateFormatter()
+            iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            if let dt = iso.date(from: s) { return dt }
+            let iso2 = ISO8601DateFormatter()      // without fractional seconds
+            if let dt = iso2.date(from: s) { return dt }
+        }
+        return Date()
+    }
+    /// Maps a cmux `notification.list` response to model notifications.
+    /// Accepts: a bare array `{...}`-wrapped under one of items/notifications/result,
+    /// OR (when the response is a bare array) the parser that fed us should have wrapped it.
+    /// Drops items already read (is_read == true OR read == true) or lacking a surface id.
     public static func mapList(_ response: [String:Any]) -> [AgentNotification] {
         let arr = (response["items"] as? [[String:Any]])
                ?? (response["notifications"] as? [[String:Any]])
                ?? (response["result"] as? [[String:Any]])
+               ?? (response["array"] as? [[String:Any]])
                ?? []
         return arr.compactMap { d -> AgentNotification? in
-            if (d["read"] as? Bool) == true { return nil }
+            let alreadyRead = (d["is_read"] as? Bool) == true || (d["read"] as? Bool) == true
+            if alreadyRead { return nil }
             let ws = str(d, ["workspaceId","workspace_id","workspace"])
             let sf = str(d, ["surfaceId","surface_id","surface"])
-            guard !sf.isEmpty else { return nil }        // nothing to jump to
+            guard !sf.isEmpty else { return nil }     // nothing to jump to
             let id = str(d, ["id","notification_id"])
+            let title = str(d, ["title","workspace_name"])
+            let subtitle = str(d, ["subtitle","sub"])
             let body = str(d, ["body","text"])
+            let tab = str(d, ["tab_title","tabTitle"])
             return AgentNotification(
                 id: id.isEmpty ? "cmux:\(sf):\(Date().timeIntervalSince1970)" : id,
                 source: "cmux",
-                title: str(d, ["title","workspace_name"]),
-                subtitle: str(d, ["subtitle","sub"]),
+                title: title,
+                subtitle: subtitle,
                 body: body,
+                createdAt: date(d),
                 priority: (str(d, ["priority"]) == "high") ? .high : .normal,
                 jump: .cmuxSurface(workspaceId: ws, surfaceId: sf),
-                sourceLabel: { let s = str(d, ["sourceLabel"]); return s.isEmpty ? "cmux" : s }())
+                sourceLabel: tab.isEmpty ? "cmux" : tab)
         }
     }
 }
@@ -82,6 +101,10 @@ public final class CmuxRPC: Sendable {
             buf.append(contentsOf: tmp.prefix(n))
             if tmp[0..<min(n, tmp.count)].contains(0x0A) { break }
         }
+        // NOTE: method `notification.list` returns a bare top-level JSON array (not an object).
+        // The current `as? [String:Any]` cast throws `.badResponse` for that case. The poller
+        // (Tasks 5/11) must special-case `notification.list` to parse with `as? [Any]` and wrap
+        // as `["array": items]` before calling `CmuxMapper.mapList`. Resolved in Task 11.
         guard let obj = try? JSONSerialization.jsonObject(with: buf) as? [String:Any] else {
             throw CmuxError.badResponse
         }
