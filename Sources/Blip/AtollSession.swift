@@ -11,7 +11,9 @@ public final class AtollSession {
 
     public var isAtollInstalled: Bool { AtollClient.shared.isAtollInstalled }
     public var isAtollRunning: Bool {
-        !NSRunningApplication.runningApplications(withBundleIdentifier: "com.ebullioscopic.Atoll").isEmpty
+        AtollAvailability.knownBundleIdentifiers.contains { bundleID in
+            !NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).isEmpty
+        }
     }
     public var shouldContactXPC: Bool {
         AtollAvailability.shouldContactXPC(isInstalled: isAtollInstalled, isRunning: isAtollRunning)

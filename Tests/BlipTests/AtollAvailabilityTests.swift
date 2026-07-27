@@ -11,4 +11,7 @@ final class AtollAvailabilityTests: XCTestCase {
         XCTAssertFalse(AtollAvailability.shouldContactXPC(isInstalled: false, isRunning: true))
         XCTAssertFalse(AtollAvailability.shouldContactXPC(isInstalled: false, isRunning: false))
     }
+    func testRecognizesActualAtollBundleIdentifierCase() {
+        XCTAssertTrue(AtollAvailability.isKnownAtollBundleIdentifier("com.Ebullioscopic.Atoll"))
+    }
 }
