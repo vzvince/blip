@@ -101,6 +101,8 @@ final class BlipEngine: ObservableObject {
             do {
                 let ok = try await atollAdapter.requestAuthorization()
                 print("blip: Atoll RPC authorized=\(ok)")
+                await presenter.resetRemoteSurfaces()
+                presenter.reload(unread: store.unreadCount, rows: store.rows(), connection: .connected)
             } catch {
                 print("blip: Atoll RPC authorization failed — \(error)")
             }

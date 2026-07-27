@@ -75,6 +75,16 @@ public final class AtollPresenter: Presenter {
         reload(unread: 0, rows: [], connection: .disconnected)
     }
 
+    /// Clears any surfaces Atoll may have persisted from an earlier Blip process/build.
+    /// This intentionally talks to Atoll even when local state is idle because Atoll's
+    /// extension managers persist descriptors independently of Blip's in-memory state.
+    public func resetRemoteSurfaces() async {
+        try? await session.dismissActivity()
+        try? await session.dismissTab()
+        state.activity = false
+        state.tab = false
+    }
+
     public func setExpanded(_ on: Bool) async {
         let wasTab = state.tab
         if on {

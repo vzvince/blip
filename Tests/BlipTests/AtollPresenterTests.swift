@@ -120,6 +120,20 @@ final class AtollPresenterTests: XCTestCase {
         XCTAssertEqual(s.presentTabCount, 1)
     }
 
+
+    @MainActor
+    func testResetRemoteSurfacesDismissesStaleAtollActivityAndTabEvenWhenLocalStateIsIdle() async {
+        let s = StubSession()
+        let p = AtollPresenter(session: s, port: 9042)
+
+        await p.resetRemoteSurfaces()
+
+        XCTAssertEqual(s.dismissActivityCount, 1, "startup reset must dismiss stale Atoll live activity persisted from an older Blip build")
+        XCTAssertEqual(s.dismissTabCount, 1, "startup reset must dismiss stale Atoll tab persisted from an older Blip build")
+        XCTAssertFalse(p.state.activity)
+        XCTAssertFalse(p.state.tab)
+    }
+
     @MainActor
     func testCoalescingCollapsesRapidUpdates() async {
         // Fire 10 rapid reloads in <250ms; at most a few should land post-coalesce window.
