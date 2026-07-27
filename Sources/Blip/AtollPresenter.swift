@@ -44,13 +44,26 @@ public final class AtollPresenter: Presenter {
                 AgentNotification(id: $0.jumpID, source: $0.sourceLabel, title: $0.title, body: $0.body)
             }
             if !state.activity {
-                try? await session.presentActivity(AtollDescriptors.collapsed(unreadCount: p.unread, latest: latest))
-                state.activity = true
+                do {
+                    try await session.presentActivity(AtollDescriptors.collapsed(unreadCount: p.unread, latest: latest))
+                    state.activity = true
+                } catch {
+                    state.activity = false
+                }
             } else {
-                try? await session.updateActivity(AtollDescriptors.collapsed(unreadCount: p.unread, latest: latest))
+                do {
+                    try await session.updateActivity(AtollDescriptors.collapsed(unreadCount: p.unread, latest: latest))
+                } catch {
+                    // If Atoll lost the activity or became unavailable, retry with a fresh present later.
+                    state.activity = false
+                }
             }
             if state.tab {
-                try? await session.updateTab(AtollDescriptors.tab(rows: p.rows, unreadCount: p.unread, port: port))
+                do {
+                    try await session.updateTab(AtollDescriptors.tab(rows: p.rows, unreadCount: p.unread, port: port))
+                } catch {
+                    state.tab = false
+                }
             }
         } else {
             if state.activity { try? await session.dismissActivity(); state.activity = false }
@@ -64,18 +77,29 @@ public final class AtollPresenter: Presenter {
 
     public func setExpanded(_ on: Bool) async {
         let wasTab = state.tab
-        state.tab = on
         if on {
             if !state.activity {
                 let latest = state.rows.first.map {
                     AgentNotification(id: $0.jumpID, source: $0.sourceLabel, title: $0.title, body: $0.body)
                 }
-                try? await session.presentActivity(AtollDescriptors.collapsed(unreadCount: state.unread, latest: latest))
-                state.activity = true
+                do {
+                    try await session.presentActivity(AtollDescriptors.collapsed(unreadCount: state.unread, latest: latest))
+                    state.activity = true
+                } catch {
+                    state.activity = false
+                    state.tab = false
+                    return
+                }
             }
-            try? await session.presentTab(AtollDescriptors.tab(rows: state.rows, unreadCount: state.unread, port: port))
+            do {
+                try await session.presentTab(AtollDescriptors.tab(rows: state.rows, unreadCount: state.unread, port: port))
+                state.tab = true
+            } catch {
+                state.tab = false
+            }
         } else {
             if wasTab { try? await session.dismissTab() }
+            state.tab = false
         }
     }
 }

@@ -1,5 +1,6 @@
 // Sources/Blip/AtollSession.swift
 import Foundation
+import AppKit
 import AtollExtensionKit
 
 @MainActor
@@ -9,6 +10,12 @@ public final class AtollSession {
     public var onTabDismiss: (() -> Void)?
 
     public var isAtollInstalled: Bool { AtollClient.shared.isAtollInstalled }
+    public var isAtollRunning: Bool {
+        !NSRunningApplication.runningApplications(withBundleIdentifier: "com.ebullioscopic.Atoll").isEmpty
+    }
+    public var shouldContactXPC: Bool {
+        AtollAvailability.shouldContactXPC(isInstalled: isAtollInstalled, isRunning: isAtollRunning)
+    }
 
     public func requestAuthorization() async throws -> Bool { try await AtollClient.shared.requestAuthorization() }
     public func isAuthorized() async throws -> Bool { try await AtollClient.shared.checkAuthorization() }

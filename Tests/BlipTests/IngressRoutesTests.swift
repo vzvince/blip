@@ -47,14 +47,27 @@ final class IngressRoutesTests: XCTestCase {
         let arr = try XCTUnwrap(obj["items"] as? [[String:Any]])
         XCTAssertEqual(arr.first?["id"] as? String, "cmux:s")
     }
-    func testClearCallsClearAll() {
+    func testPostClearCallsClearAll() {
         let store = Store()
         store.upsert(AgentNotification(id:"n1", source:"cmux", title:"Codex", body:"x",
             jump: .cmuxSurface(workspaceId:"w", surfaceId:"s")))
         let action = StubAction()
-        _ = IngressRoutes.respond(method: "POST", path: "/clear", query: [:], body: Data(),
+        let res = IngressRoutes.respond(method: "POST", path: "/clear", query: [:], body: Data(),
                                         store: store, action: action, port: 9999)
+        XCTAssertEqual(res.statusCode, 204)
         XCTAssertTrue(action.cleared)
+    }
+
+    func testGetClearCallsClearAllForAtollWebContentFetch() {
+        let store = Store()
+        store.upsert(AgentNotification(id:"n1", source:"cmux", title:"Codex", body:"x",
+            jump: .cmuxSurface(workspaceId:"w", surfaceId:"s")))
+        let action = StubAction()
+        let res = IngressRoutes.respond(method: "GET", path: "/clear", query: [:], body: Data(),
+                                        store: store, action: action, port: 9999)
+        XCTAssertEqual(res.statusCode, 204)
+        XCTAssertTrue(action.cleared)
+        XCTAssertEqual(res.headers["Access-Control-Allow-Origin"], "*")
     }
 }
 

@@ -47,7 +47,7 @@ public enum IngressRoutes {
                  "jumpID": row.jumpID]
             }
             return json(200, ["unread": store.unreadCount, "items": rows], cors: h)
-        case ("POST", "/clear"):
+        case ("POST", "/clear"), ("GET", "/clear"):
             action.clearAll()
             return IngressResponse(statusCode: 204, headers: h, body: Data())
         default:

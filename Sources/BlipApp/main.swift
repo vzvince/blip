@@ -18,12 +18,15 @@ struct BlipApp: App {
 /// Adapter making AtollSession (@MainActor) satisfy AtollPresenting.
 @MainActor
 final class AtollSessionAdapter: AtollPresenting {
-    func presentActivity(_ d: AtollLiveActivityDescriptor) async throws { try await AtollSession.shared.presentActivity(d) }
-    func updateActivity(_ d: AtollLiveActivityDescriptor) async throws { try await AtollSession.shared.updateActivity(d) }
-    func dismissActivity() async throws { try await AtollSession.shared.dismissActivity() }
-    func presentTab(_ d: AtollNotchExperienceDescriptor) async throws { try await AtollSession.shared.presentTab(d) }
-    func updateTab(_ d: AtollNotchExperienceDescriptor) async throws { try await AtollSession.shared.updateTab(d) }
-    func dismissTab() async throws { try await AtollSession.shared.dismissTab() }
+    private func guardXPC() throws {
+        guard AtollSession.shared.shouldContactXPC else { throw AtollAvailabilityError.notRunning }
+    }
+    func presentActivity(_ d: AtollLiveActivityDescriptor) async throws { try guardXPC(); try await AtollSession.shared.presentActivity(d) }
+    func updateActivity(_ d: AtollLiveActivityDescriptor) async throws { try guardXPC(); try await AtollSession.shared.updateActivity(d) }
+    func dismissActivity() async throws { try guardXPC(); try await AtollSession.shared.dismissActivity() }
+    func presentTab(_ d: AtollNotchExperienceDescriptor) async throws { try guardXPC(); try await AtollSession.shared.presentTab(d) }
+    func updateTab(_ d: AtollNotchExperienceDescriptor) async throws { try guardXPC(); try await AtollSession.shared.updateTab(d) }
+    func dismissTab() async throws { try guardXPC(); try await AtollSession.shared.dismissTab() }
 }
 
 @MainActor
@@ -51,8 +54,12 @@ final class BlipEngine: ObservableObject {
             }
         }
         try? ingress.start()
-        print("blip: up — ingress http://127.0.0.1:\(cfg.port) | cmux socket: \(cfg.cmuxSocket) | Atoll installed: \(AtollSession.shared.isAtollInstalled)")
+        print("blip: up — ingress http://127.0.0.1:\(cfg.port) | cmux socket: \(cfg.cmuxSocket) | Atoll installed: \(AtollSession.shared.isAtollInstalled) | Atoll running: \(AtollSession.shared.isAtollRunning)")
         Task { @MainActor in
+            guard AtollSession.shared.shouldContactXPC else {
+                print("blip: Atoll authorization skipped — Atoll is installed but not running, or unavailable. Start Atoll and re-launch Blip after enabling third-party extensions.")
+                return
+            }
             // AtollExtensionKit's requestAuthorization() leaks its continuation if the extension
             // XPC isn't reachable (e.g. Atoll's "Enable third-party extensions" toggle is off).
             // Race it with a 5s timeout so the engine never hangs; the SDK's cosmetic leak is

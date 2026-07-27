@@ -25,9 +25,16 @@ public final class IngressServer: @unchecked Sendable {
     }
     public func stop() { listener?.cancel(); listener = nil }
     private func handle(_ conn: NWConnection) {
+        receiveRequest(on: conn, buffer: HTTPRequestBuffer())
+    }
+
+    private func receiveRequest(on conn: NWConnection, buffer: HTTPRequestBuffer) {
         conn.receive(minimumIncompleteLength: 1, maximumLength: 65536) { [weak self] data, _, _, err in
             guard let self, let data, err == nil else { conn.cancel(); return }
-            let req = HTTPParser.parse(data)
+            guard let req = buffer.accumulator.append(data) else {
+                self.receiveRequest(on: conn, buffer: buffer)
+                return
+            }
             // Observable request log — so the Task 8.5 webview click-back shows as `GET /jump?id=...`
             let qs = req.query.isEmpty ? "" : "?" + req.query.map { "\($0)=\($1)" }.joined(separator: "&")
             print("blip: ingress \(req.method) \(req.path)\(qs)")
@@ -39,7 +46,35 @@ public final class IngressServer: @unchecked Sendable {
     }
 }
 
+final class HTTPRequestBuffer: @unchecked Sendable {
+    var accumulator = HTTPRequestAccumulator()
+}
+
+struct HTTPRequestAccumulator {
+    private var buffer = Data()
+
+    mutating func append(_ data: Data) -> (method:String, path:String, query:[String:String], body:Data)? {
+        buffer.append(data)
+        let marker = Data([13, 10, 13, 10])
+        guard let headerRange = buffer.range(of: marker) else { return nil }
+        let bodyStart = headerRange.upperBound
+        let headers = String(data: buffer[..<headerRange.lowerBound], encoding: .utf8) ?? ""
+        let contentLength = HTTPParser.contentLength(in: headers) ?? 0
+        guard buffer.count - bodyStart >= contentLength else { return nil }
+        let request = buffer.prefix(bodyStart + contentLength)
+        return HTTPParser.parse(Data(request))
+    }
+}
+
 enum HTTPParser {
+    static func contentLength(in headers: String) -> Int? {
+        for line in headers.components(separatedBy: "\r\n") {
+            let parts = line.split(separator: ":", maxSplits: 1).map { $0.trimmingCharacters(in: .whitespaces) }
+            if parts.count == 2 && parts[0].lowercased() == "content-length" { return Int(parts[1]) }
+        }
+        return nil
+    }
+
     static func parse(_ data: Data) -> (method:String, path:String, query:[String:String], body:Data) {
         guard let str = String(data: data, encoding: .utf8) else { return ("GET","",[:],Data()) }
         let parts = str.components(separatedBy: "\r\n\r\n")

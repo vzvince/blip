@@ -16,17 +16,27 @@ final class AtollPresenterTests: XCTestCase {
         var presentTabCount = 0
         var updateTabCount = 0
         var dismissTabCount = 0
-        func presentActivity(_ d: AtollLiveActivityDescriptor) async throws { presentedActivity = true; presentActivityCount += 1 }
+        var presentActivityError: Error? = nil
+        var presentTabError: Error? = nil
+        func presentActivity(_ d: AtollLiveActivityDescriptor) async throws {
+            presentActivityCount += 1
+            if let error = presentActivityError { presentActivityError = nil; throw error }
+            presentedActivity = true
+        }
         func updateActivity(_ d: AtollLiveActivityDescriptor) async throws { updatedActivity = true; updateActivityCount += 1 }
         func dismissActivity() async throws { dismissedActivity = true; dismissActivityCount += 1 }
-        func presentTab(_ d: AtollNotchExperienceDescriptor) async throws { presentedTab = true; presentTabCount += 1 }
+        func presentTab(_ d: AtollNotchExperienceDescriptor) async throws {
+            presentTabCount += 1
+            if let error = presentTabError { throw error }
+            presentedTab = true
+        }
         func updateTab(_ d: AtollNotchExperienceDescriptor) async throws { updatedTab = true; updateTabCount += 1 }
         func dismissTab() async throws { dismissedTab = true; dismissTabCount += 1 }
     }
     @MainActor
     func testIdlePresenterWithdrawsNothing() async {
         let p = AtollPresenter(session: StubSession(), port: 9042)
-        await p.reload(unread: 0, rows: [], connection: .connected)
+        p.reload(unread: 0, rows: [], connection: .connected)
         XCTAssertFalse(p.state.activity)
         XCTAssertFalse(p.state.tab)
     }
@@ -37,7 +47,7 @@ final class AtollPresenterTests: XCTestCase {
         let s = StubSession(); let p = AtollPresenter(session: s, port: 9042, coalesceNanos: 1_000_000)
         let row = RowViewModel(id:"cmux:s", sourceLabel:"Codex", title:"Codex", subtitle:"Waiting",
                                body:"x", unreadCount:1, isPriority:false, jumpID:"n")
-        await p.reload(unread: 1, rows: [row], connection: .connected)
+        p.reload(unread: 1, rows: [row], connection: .connected)
         // Await the coalesced flush before asserting: reload() schedules applyPending()
         // via Task.sleep(coalesceNanos), so the presentActivity side-effect lands only after.
         try? await Task.sleep(nanoseconds: 5_000_000)
@@ -49,7 +59,7 @@ final class AtollPresenterTests: XCTestCase {
         let s = StubSession(); let p = AtollPresenter(session: s, port: 9042)
         let row = RowViewModel(id:"cmux:s", sourceLabel:"Codex", title:"Codex", subtitle:"", body:"x",
                                unreadCount:1, isPriority:false, jumpID:"n")
-        await p.reload(unread: 1, rows:[row], connection:.connected)
+        p.reload(unread: 1, rows:[row], connection:.connected)
         await p.setExpanded(true)
         XCTAssertTrue(p.state.tab)
         await p.setExpanded(false)
@@ -62,7 +72,7 @@ final class AtollPresenterTests: XCTestCase {
         let s = StubSession(); let p = AtollPresenter(session: s, port: 9042, coalesceNanos: 1_000_000)
         let row = RowViewModel(id:"cmux:s", sourceLabel:"Codex", title:"Codex", subtitle:"", body:"x",
                                unreadCount:1, isPriority:false, jumpID:"n")
-        await p.reload(unread: 1, rows:[row], connection:.connected)
+        p.reload(unread: 1, rows:[row], connection:.connected)
         // Let reload(1)'s coalesced applyPending actually present the activity first;
         // otherwise the subsequent reload(0) cancels it and the activity is never shown,
         // so the later idle-branch would see state.activity==false and skip dismissActivity.
@@ -70,7 +80,7 @@ final class AtollPresenterTests: XCTestCase {
         // Present the tab so there is something to dismiss when we return to idle —
         // applyPending's idle branch only calls dismissTab when state.tab==true.
         await p.setExpanded(true)
-        await p.reload(unread: 0, rows: [], connection: .connected)
+        p.reload(unread: 0, rows: [], connection: .connected)
         // Await the coalesced flush that dismisses both surfaces.
         try? await Task.sleep(nanoseconds: 5_000_000)
         XCTAssertTrue(s.dismissedActivity, "going to idle must dismiss the activity")
@@ -78,6 +88,38 @@ final class AtollPresenterTests: XCTestCase {
         XCTAssertFalse(p.state.activity)
         XCTAssertFalse(p.state.tab)
     }
+
+    @MainActor
+    func testFailedPresentDoesNotMarkActivityShownSoNextReloadCanRetry() async {
+        let s = StubSession()
+        s.presentActivityError = NSError(domain: "atoll", code: 1)
+        let p = AtollPresenter(session: s, port: 9042, coalesceNanos: 1_000_000)
+        let row = RowViewModel(id:"cmux:s", sourceLabel:"Codex", title:"Codex", subtitle:"", body:"x",
+                               unreadCount:1, isPriority:false, jumpID:"n")
+        p.reload(unread: 1, rows: [row], connection: .connected)
+        try? await Task.sleep(nanoseconds: 5_000_000)
+        XCTAssertFalse(p.state.activity, "failed Atoll present must not poison presenter state")
+
+        p.reload(unread: 1, rows: [row], connection: .connected)
+        try? await Task.sleep(nanoseconds: 5_000_000)
+        XCTAssertTrue(p.state.activity)
+        XCTAssertEqual(s.presentActivityCount, 2, "second reload should retry present, not update a missing activity")
+        XCTAssertEqual(s.updateActivityCount, 0)
+    }
+
+    @MainActor
+    func testFailedTabPresentDoesNotMarkTabShown() async {
+        let s = StubSession()
+        s.presentTabError = NSError(domain: "atoll", code: 2)
+        let p = AtollPresenter(session: s, port: 9042)
+        let row = RowViewModel(id:"cmux:s", sourceLabel:"Codex", title:"Codex", subtitle:"", body:"x",
+                               unreadCount:1, isPriority:false, jumpID:"n")
+        p.reload(unread: 1, rows: [row], connection: .connected)
+        await p.setExpanded(true)
+        XCTAssertFalse(p.state.tab, "failed Atoll tab present must not poison presenter state")
+        XCTAssertEqual(s.presentTabCount, 1)
+    }
+
     @MainActor
     func testCoalescingCollapsesRapidUpdates() async {
         // Fire 10 rapid reloads in <250ms; at most a few should land post-coalesce window.
