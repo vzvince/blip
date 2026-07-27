@@ -63,15 +63,19 @@ public final class AtollPresenter: Presenter {
     }
 
     public func setExpanded(_ on: Bool) async {
+        let wasTab = state.tab
         state.tab = on
         if on {
             if !state.activity {
-                try? await session.presentActivity(AtollDescriptors.collapsed(unreadCount: state.unread, latest: nil))
+                let latest = state.rows.first.map {
+                    AgentNotification(id: $0.jumpID, source: $0.sourceLabel, title: $0.title, body: $0.body)
+                }
+                try? await session.presentActivity(AtollDescriptors.collapsed(unreadCount: state.unread, latest: latest))
                 state.activity = true
             }
             try? await session.presentTab(AtollDescriptors.tab(rows: state.rows, unreadCount: state.unread, port: port))
         } else {
-            if state.tab { try? await session.dismissTab() }
+            if wasTab { try? await session.dismissTab() }
         }
     }
 }

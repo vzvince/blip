@@ -10,12 +10,18 @@ final class AtollPresenterTests: XCTestCase {
         var presentedTab = false
         var updatedTab = false
         var dismissedTab = false
-        func presentActivity(_ d: AtollLiveActivityDescriptor) async throws { presentedActivity = true }
-        func updateActivity(_ d: AtollLiveActivityDescriptor) async throws { updatedActivity = true }
-        func dismissActivity() async throws { dismissedActivity = true }
-        func presentTab(_ d: AtollNotchExperienceDescriptor) async throws { presentedTab = true }
-        func updateTab(_ d: AtollNotchExperienceDescriptor) async throws { updatedTab = true }
-        func dismissTab() async throws { dismissedTab = true }
+        var presentActivityCount = 0
+        var updateActivityCount = 0
+        var dismissActivityCount = 0
+        var presentTabCount = 0
+        var updateTabCount = 0
+        var dismissTabCount = 0
+        func presentActivity(_ d: AtollLiveActivityDescriptor) async throws { presentedActivity = true; presentActivityCount += 1 }
+        func updateActivity(_ d: AtollLiveActivityDescriptor) async throws { updatedActivity = true; updateActivityCount += 1 }
+        func dismissActivity() async throws { dismissedActivity = true; dismissActivityCount += 1 }
+        func presentTab(_ d: AtollNotchExperienceDescriptor) async throws { presentedTab = true; presentTabCount += 1 }
+        func updateTab(_ d: AtollNotchExperienceDescriptor) async throws { updatedTab = true; updateTabCount += 1 }
+        func dismissTab() async throws { dismissedTab = true; dismissTabCount += 1 }
     }
     @MainActor
     func testIdlePresenterWithdrawsNothing() async {
@@ -48,6 +54,7 @@ final class AtollPresenterTests: XCTestCase {
         XCTAssertTrue(p.state.tab)
         await p.setExpanded(false)
         XCTAssertFalse(p.state.tab)
+        XCTAssertTrue(s.dismissedTab, "collapsing the tab must call dismissTab (state flag alone is not enough)")
     }
     @MainActor
     func testBackToIdleDismissesAll() async {
@@ -81,6 +88,8 @@ final class AtollPresenterTests: XCTestCase {
         // wait long enough for the coalesced flush
         try? await Task.sleep(nanoseconds: 80_000_000)
         XCTAssertTrue(p.state.activity)
+        XCTAssertEqual(s.presentActivityCount, 1, "10 rapid reloads must collapse to a single presentActivity, not 10")
+        XCTAssertEqual(s.updateActivityCount, 0)
         // The presenter applied the final batched state once (coalesce deliberately collapses the 10).
     }
 }
