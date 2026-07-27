@@ -18,3 +18,11 @@ blip ls                                                       # current inbox
 blip focus <id>                                               # jump to that terminal
 blip clear                                                    # clear all
 ```
+
+## Build note
+Fresh builds need `GIT_LFS_SKIP_SMUDGE=1` because the AtollExtensionKit dep has a broken
+LFS pointer (a `.mov` asset not stored on the remote). Run:
+```sh
+GIT_LFS_SKIP_SMUDGE=1 swift build      # or swift test
+```
+Once `.build/checkouts/AtollExtensionKit` is cached, plain `swift build` works in that clone.
