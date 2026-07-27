@@ -25,17 +25,28 @@ final class AtollDescriptorsTests: XCTestCase {
         XCTAssertNil(d.badgeIcon, "collapsed island should not render Blip as a standalone white dot")
     }
 
-    func testCollapsedIndicatorUsesReadableTrailingText() {
-        let d = AtollDescriptors.collapsed(unreadCount: 3,
+
+    func testCollapsedIndicatorHasNoTrailingWingToAvoidWhiteSquareArtifact() {
+        let d = AtollDescriptors.collapsed(unreadCount: 1,
             latest: AgentNotification(id:"n", source:"cmux", title:"Codex", body:"input"))
+
         switch d.trailingContent {
-        case .marquee(let text, _, _, _):
-            XCTAssertEqual(text, "Blip 3")
+        case .none:
+            break
         default:
-            XCTFail("collapsed island should use readable trailing text instead of a bare count")
+            XCTFail("collapsed island should only show the Blip app icon; Atoll clips trailing text into a white square artifact")
         }
     }
 
+    func testTabNativeSectionIsCompactWithoutInstructionSubtitle() {
+        let rows = [RowViewModel(id:"n1", sourceLabel:"Codex", title:"Needs input", subtitle:"1m ago",
+                                 body:"Please review", unreadCount: 1, isPriority: false, jumpID: "n1")]
+        let d = AtollDescriptors.tab(rows: rows, unreadCount: 1, port: 9042)
+
+        let section = d.tab?.sections.first
+        XCTAssertEqual(section?.title, "1 unread")
+        XCTAssertNil(section?.subtitle, "Atoll tab is height-constrained; avoid instructional subtitle that makes the inbox feel cramped")
+    }
 
     func testCollapsedIndicatorUsesBlipAppIconAndSneakPeekOnEveryUpdate() {
         let d = AtollDescriptors.collapsed(unreadCount: 3,

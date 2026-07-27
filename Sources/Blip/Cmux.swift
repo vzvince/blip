@@ -35,9 +35,12 @@ public enum CmuxMapper {
     /// OR (when the response is a bare array) the parser that fed us should have wrapped it.
     /// Drops items already read (is_read == true OR read == true) or lacking a surface id.
     public static func mapList(_ response: [String:Any]) -> [AgentNotification] {
+        let result = response["result"] as? [String: Any]
         let arr = (response["items"] as? [[String:Any]])
                ?? (response["notifications"] as? [[String:Any]])
                ?? (response["result"] as? [[String:Any]])
+               ?? (result?["notifications"] as? [[String:Any]])
+               ?? (result?["items"] as? [[String:Any]])
                ?? (response["array"] as? [[String:Any]])
                ?? []
         return arr.compactMap { d -> AgentNotification? in
@@ -62,6 +65,17 @@ public enum CmuxMapper {
                 jump: .cmuxSurface(workspaceId: ws, surfaceId: sf),
                 sourceLabel: tab.isEmpty ? "cmux" : tab)
         }
+    }
+
+    public static func mapListData(_ data: Data) throws -> [AgentNotification] {
+        let object = try JSONSerialization.jsonObject(with: data, options: [.allowFragments])
+        if let items = object as? [[String: Any]] {
+            return mapList(["array": items])
+        }
+        if let response = object as? [String: Any] {
+            return mapList(response)
+        }
+        throw CmuxError.badResponse
     }
 }
 

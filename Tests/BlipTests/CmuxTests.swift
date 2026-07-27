@@ -82,4 +82,29 @@ final class CmuxTests: XCTestCase {
         ] as [String:Any]]]
         XCTAssertTrue(CmuxMapper.mapList(wrapper).isEmpty)
     }
+
+    func testMapListAcceptsJSONRPCResultNotificationsShape() {
+        let response: [String:Any] = ["result": ["notifications": [[
+            "id":"n-jsonrpc", "workspace_id":"w", "surface_id":"s",
+            "title":"ACP Plugins", "body":"Review requested", "is_read":false,
+            "created_at":"2026-07-27T16:09:58Z", "tab_title":"ACP Plugins"
+        ] as [String:Any]]]]
+
+        let got = CmuxMapper.mapList(response)
+
+        XCTAssertEqual(got.count, 1)
+        XCTAssertEqual(got.first?.id, "n-jsonrpc")
+        XCTAssertEqual(got.first?.sourceLabel, "ACP Plugins")
+    }
+
+    func testMapListDataAcceptsJSONRPCObjectShapeFromSocket() throws {
+        let raw = """
+        {"result":{"notifications":[{"id":"n-data","workspace_id":"w","surface_id":"s","title":"Codex","body":"Waiting","is_read":false}]},"ok":true,"id":"list"}
+        """.data(using: .utf8)!
+
+        let got = try CmuxMapper.mapListData(raw)
+
+        XCTAssertEqual(got.map(\.id), ["n-data"])
+    }
+
 }

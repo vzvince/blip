@@ -144,15 +144,13 @@ final class BlipEngine: ObservableObject {
     }
     private func pollOnce() async {
         guard config.sources.contains("cmux") else { return }
-        // notification.list returns a BARE top-level JSON ARRAY — CmuxRPC.call expects [String:Any]
-        // and throws .badResponse on it. So we send the frame and recv the raw bytes ourselves,
-        // parse [Any], wrap as ["array": items], then map.
+        // Different cmux versions return either a bare array or a JSON-RPC object
+        // shaped like { result: { notifications: [...] } }. Read raw bytes so the
+        // mapper can normalize both shapes.
         do {
             let frame = CmuxFrames.encode(id: "list", method: "notification.list", params: [:])
             let raw = try cmux.recvRaw(frame: frame)
-            let items = (try? JSONSerialization.jsonObject(with: raw, options: [.allowFragments]) as? [Any]) ?? []
-            let wrapped: [String:Any] = ["array": items]
-            for n in CmuxMapper.mapList(wrapped) { store.upsert(n) }
+            for n in try CmuxMapper.mapListData(raw) { store.upsert(n) }
         } catch {
             // socket absent / not allowAll / parse issue — log once per poll cycle (≤1/sec)
             print("blip: cmux poll failed: \(error) — ensure CMUX_SOCKET_MODE=allowAll and cmux running; generic push via `blip push` still works")
