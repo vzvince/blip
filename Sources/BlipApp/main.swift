@@ -47,9 +47,19 @@ final class BlipEngine: ObservableObject {
         try? ingress.start()
         print("blip: up — ingress http://127.0.0.1:\(cfg.port) | cmux socket: \(cfg.cmuxSocket) | Atoll installed: \(AtollSession.shared.isAtollInstalled)")
         Task { @MainActor in
-            let ok = (try? await AtollSession.shared.requestAuthorization()) ?? false
-            print("blip: Atoll authorized=\(ok)" + (ok ? "" : " — open Atoll → Settings → Extensions → authorize Blip, enable 'extension notch experiences' + 'show extension tabs'"))
-            AtollSession.shared.registerDismiss()
+            // AtollExtensionKit's requestAuthorization() leaks its continuation if the extension
+            // XPC isn't reachable (e.g. Atoll's "Enable third-party extensions" toggle is off).
+            // Race it with a 5s timeout so the engine never hangs; the SDK's cosmetic leak is
+            // unavoidable but the app stays responsive + we get a clean "not authorized" log.
+            let ok: Bool = await withTaskGroup(of: Bool?.self) { group in
+                group.addTask { try? await AtollSession.shared.requestAuthorization() }
+                group.addTask { try? await Task.sleep(nanoseconds: 5_000_000_000); return nil }
+                let first = await group.next() ?? nil
+                group.cancelAll()
+                return first ?? false
+            }
+            print("blip: Atoll authorized=\(ok)" + (ok ? "" : " — Atoll running, but extension XPC unreachable. Enable in Atoll → Settings → Extensions: 'Enable third-party extensions' + 'Allow extension notch experiences' + 'Show extension tabs', then re-launch Blip."))
+            if ok { AtollSession.shared.registerDismiss() }
         }
         startPolling()
     }
