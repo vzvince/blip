@@ -34,18 +34,27 @@ struct BlipApp: App {
     }
 }
 
-/// Adapter making AtollSession (@MainActor) satisfy AtollPresenting.
+/// Adapter using Atoll's current JSON-RPC WebSocket extension transport.
+/// Atoll 2.3.x exposes localhost:9020 for extensions; its legacy XPC mach service may
+/// not be registered even while the app is running.
 @MainActor
-final class AtollSessionAdapter: AtollPresenting {
-    private func guardXPC() throws {
-        guard AtollSession.shared.shouldContactXPC else { throw AtollAvailabilityError.notRunning }
+final class AtollRPCSessionAdapter: AtollPresenting {
+    let client = AtollRPCClient()
+
+    private func guardAtollRunning() throws {
+        guard AtollSession.shared.isAtollInstalled && AtollSession.shared.isAtollRunning else {
+            throw AtollAvailabilityError.notRunning
+        }
     }
-    func presentActivity(_ d: AtollLiveActivityDescriptor) async throws { try guardXPC(); try await AtollSession.shared.presentActivity(d) }
-    func updateActivity(_ d: AtollLiveActivityDescriptor) async throws { try guardXPC(); try await AtollSession.shared.updateActivity(d) }
-    func dismissActivity() async throws { try guardXPC(); try await AtollSession.shared.dismissActivity() }
-    func presentTab(_ d: AtollNotchExperienceDescriptor) async throws { try guardXPC(); try await AtollSession.shared.presentTab(d) }
-    func updateTab(_ d: AtollNotchExperienceDescriptor) async throws { try guardXPC(); try await AtollSession.shared.updateTab(d) }
-    func dismissTab() async throws { try guardXPC(); try await AtollSession.shared.dismissTab() }
+
+    func requestAuthorization() async throws -> Bool { try guardAtollRunning(); return try await client.requestAuthorization() }
+    func checkAuthorization() async throws -> Bool { try guardAtollRunning(); return try await client.checkAuthorization() }
+    func presentActivity(_ d: AtollLiveActivityDescriptor) async throws { try guardAtollRunning(); try await client.presentActivity(d) }
+    func updateActivity(_ d: AtollLiveActivityDescriptor) async throws { try guardAtollRunning(); try await client.updateActivity(d) }
+    func dismissActivity() async throws { try guardAtollRunning(); try await client.dismissActivity(activityID: AtollDescriptors.activityID) }
+    func presentTab(_ d: AtollNotchExperienceDescriptor) async throws { try guardAtollRunning(); try await client.presentTab(d) }
+    func updateTab(_ d: AtollNotchExperienceDescriptor) async throws { try guardAtollRunning(); try await client.updateTab(d) }
+    func dismissTab() async throws { try guardAtollRunning(); try await client.dismissTab(experienceID: AtollDescriptors.tabID) }
 }
 
 @MainActor
@@ -74,7 +83,8 @@ final class BlipEngine: ObservableObject {
         let jump = CmuxJumpExecutor(rpc: cmux); self.jump = jump
         let action = ActionHandler(store: store, jump: jump); self.action = action
         let ingress = IngressServer(port: cfg.port, store: store, action: action); self.ingress = ingress
-        let presenter = AtollPresenter(session: AtollSessionAdapter(), port: cfg.port); self.presenter = presenter
+        let atollAdapter = AtollRPCSessionAdapter()
+        let presenter = AtollPresenter(session: atollAdapter, port: cfg.port); self.presenter = presenter
         store.onChange = { [weak self] _ in
             Task { @MainActor in
                 guard let self else { return }
@@ -86,23 +96,12 @@ final class BlipEngine: ObservableObject {
         try? ingress.start()
         print("blip: up — ingress http://127.0.0.1:\(cfg.port) | cmux socket: \(cfg.cmuxSocket) | Atoll installed: \(AtollSession.shared.isAtollInstalled) | Atoll running: \(AtollSession.shared.isAtollRunning)")
         Task { @MainActor in
-            guard AtollSession.shared.shouldContactXPC else {
-                print("blip: Atoll authorization skipped — Atoll is installed but not running, or unavailable. Start Atoll and re-launch Blip after enabling third-party extensions.")
-                return
+            do {
+                let ok = try await atollAdapter.requestAuthorization()
+                print("blip: Atoll RPC authorized=\(ok)")
+            } catch {
+                print("blip: Atoll RPC authorization failed — \(error)")
             }
-            // AtollExtensionKit's requestAuthorization() leaks its continuation if the extension
-            // XPC isn't reachable (e.g. Atoll's "Enable third-party extensions" toggle is off).
-            // Race it with a 5s timeout so the engine never hangs; the SDK's cosmetic leak is
-            // unavoidable but the app stays responsive + we get a clean "not authorized" log.
-            let ok: Bool = await withTaskGroup(of: Bool?.self) { group in
-                group.addTask { try? await AtollSession.shared.requestAuthorization() }
-                group.addTask { try? await Task.sleep(nanoseconds: 5_000_000_000); return nil }
-                let first = await group.next() ?? nil
-                group.cancelAll()
-                return first ?? false
-            }
-            print("blip: Atoll authorized=\(ok)" + (ok ? "" : " — Atoll running, but extension XPC unreachable. Enable in Atoll → Settings → Extensions: 'Enable third-party extensions' + 'Allow extension notch experiences' + 'Show extension tabs', then re-launch Blip."))
-            if ok { AtollSession.shared.registerDismiss() }
         }
         startPolling()
     }
