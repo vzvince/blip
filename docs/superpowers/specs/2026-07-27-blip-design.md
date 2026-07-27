@@ -125,7 +125,8 @@ Two island surfaces, both via `AtollClient`:
 
 **Atoll absent / unauthorized (v1):**
 - Blip keeps ingest + store running; island surfaces no-op; resume presenting on `onAuthorizationChange → true` or when Atoll launches.
-- **Open product decision (see conversation):** when Atoll is down in v1, is the indicator allowed to disappear entirely (strict Atoll-only, menubar deferred to v2), or do we ship `MenuBarPresenter` now as an automatic fallback so a global indicator is always present?
+- **v1 decision (strict Atoll-only):** when Atoll is down/unauthorized, the indicator disappears entirely; the menu bar is deferred to v2 — consistent with the explicit v1=Atoll-only / v2=menubar choice.
+- **Recommended later upgrade (cheap flip):** since the `Presenter` port is already abstracted, switching to "MenuBarPresenter auto-fallback whenever Atoll is absent" is one new file — recommended if always-on presence matters (the original motivation leans this way). Can be adopted before or during v2 without touching Store/Ingress.
 
 ### 5.5 ActionHandler
 - `activate(id)`: resolve `jump`: `.cmuxSurface(_, surfaceId)` → `{"method":"surface.focus","params":{"surface_id":<id>}}` via cmux socket (pin-point); on failure → `workspace.select` → fallback `open -a cmux`. `.openApp(bundleId)` → `open -b <bundleId>`. `.none` → mark read only. Then `markRead(id)` + reload presenters.
