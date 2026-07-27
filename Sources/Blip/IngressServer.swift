@@ -28,6 +28,9 @@ public final class IngressServer: @unchecked Sendable {
         conn.receive(minimumIncompleteLength: 1, maximumLength: 65536) { [weak self] data, _, _, err in
             guard let self, let data, err == nil else { conn.cancel(); return }
             let req = HTTPParser.parse(data)
+            // Observable request log — so the Task 8.5 webview click-back shows as `GET /jump?id=...`
+            let qs = req.query.isEmpty ? "" : "?" + req.query.map { "\($0)=\($1)" }.joined(separator: "&")
+            print("blip: ingress \(req.method) \(req.path)\(qs)")
             let res = IngressRoutes.respond(method: req.method, path: req.path,
                                             query: req.query, body: req.body,
                                             store: self.store, action: self.action, port: self.port)
