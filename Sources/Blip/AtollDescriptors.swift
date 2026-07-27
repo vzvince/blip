@@ -14,9 +14,9 @@ public enum AtollDescriptors {
             title: "Blip",
             subtitle: latest.map { "\($0.sourceLabel) · \($0.title)" },
             leadingIcon: .symbol(name: "bell.badge.fill"),
-            trailingContent: .text("\(unreadCount)"),
+            trailingContent: .marquee(unreadCount > 0 ? "Blip \(unreadCount)" : "Blip"),
             accentColor: .accent,
-            badgeIcon: unreadCount > 0 ? .symbol(name: "circle.fill") : nil,
+            badgeIcon: nil,
             allowsMusicCoexistence: true,
             centerTextStyle: .inheritUser,
             sneakPeekConfig: .standard(duration: 3.0),
@@ -34,7 +34,7 @@ public enum AtollDescriptors {
             tab: .init(
                 title: "Blip",
                 iconSymbolName: "bell.badge.fill",
-                badgeIcon: unreadCount > 0 ? .symbol(name: "circle.fill") : nil,
+                badgeIcon: nil,
                 preferredHeight: 360,
                 sections: [],
                 webContent: AtollWidgetWebContentDescriptor(

@@ -18,6 +18,24 @@ final class AtollDescriptorsTests: XCTestCase {
             latest: AgentNotification(id:"n", source:"cmux", title:"T", body:"b", priority: .high))
         XCTAssertEqual(d.priority, .high)
     }
+
+    func testCollapsedIndicatorDoesNotRenderDotBadge() {
+        let d = AtollDescriptors.collapsed(unreadCount: 3,
+            latest: AgentNotification(id:"n", source:"cmux", title:"Codex", body:"input"))
+        XCTAssertNil(d.badgeIcon, "collapsed island should not render Blip as a standalone white dot")
+    }
+
+    func testCollapsedIndicatorUsesReadableTrailingText() {
+        let d = AtollDescriptors.collapsed(unreadCount: 3,
+            latest: AgentNotification(id:"n", source:"cmux", title:"Codex", body:"input"))
+        switch d.trailingContent {
+        case .marquee(let text, _, _, _):
+            XCTAssertEqual(text, "Blip 3")
+        default:
+            XCTFail("collapsed island should use readable trailing text instead of a bare count")
+        }
+    }
+
     func testTabWithInlineListIsValid() {
         let rows = [RowViewModel(id:"cmux:s", sourceLabel:"Codex", title:"Codex", subtitle:"Waiting",
                                  body:"input", unreadCount: 1, isPriority: false, jumpID: "n")]

@@ -22,6 +22,8 @@ struct BlipApp: App {
                 .font(.caption)
             Divider()
             Button("Send Test Notification") { engine.sendTestNotification() }
+            Button("Show in Atoll") { engine.showInAtoll() }
+            Button("Hide from Atoll") { engine.hideFromAtoll() }
             Button("Clear All") { engine.clearAll() }
                 .disabled(engine.unreadCount == 0)
             Divider()
@@ -112,9 +114,23 @@ final class BlipEngine: ObservableObject {
                                        title: "Blip is running",
                                        body: "Opened from the menu bar",
                                        sourceLabel: "Blip"))
+        showInAtoll(after: 350_000_000)
+    }
+
+    func showInAtoll() { showInAtoll(after: 0) }
+
+    func hideFromAtoll() {
+        Task { @MainActor in await presenter.setExpanded(false) }
     }
 
     func clearAll() { action.clearAll() }
+
+    private func showInAtoll(after delayNanos: UInt64) {
+        Task { @MainActor in
+            if delayNanos > 0 { try? await Task.sleep(nanoseconds: delayNanos) }
+            await presenter.setExpanded(true)
+        }
+    }
 
     private func startPolling() {
         poll = Task { [weak self] in
