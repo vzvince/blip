@@ -9,8 +9,13 @@ let package = Package(
         .executable(name: "blip", targets: ["blip-cli"]),
         .executable(name: "BlipApp", targets: ["BlipApp"]),
     ],
+    dependencies: [
+        .package(url: "https://github.com/Ebullioscopic/AtollExtensionKit.git", from: "1.0.0"),
+    ],
     targets: [
-        .target(name: "Blip"),
+        .target(name: "Blip", dependencies: [
+            .product(name: "AtollExtensionKit", package: "AtollExtensionKit"),
+        ]),
         .executableTarget(name: "blip-cli", dependencies: ["Blip"], path: "Sources/blip-cli"),
         .executableTarget(name: "BlipApp", dependencies: ["Blip"]),
         .testTarget(name: "BlipTests", dependencies: ["Blip"]),
