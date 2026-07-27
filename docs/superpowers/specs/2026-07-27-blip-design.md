@@ -87,6 +87,46 @@ protocol Presenter {
 
 **v2 `MenuBarPresenter`** (later): `NSStatusItem` with unread badge + SwiftUI popover list; same rows, same ActionHandler.
 
+### 5.4.1 Atoll island — product logic (states & interactions)
+
+Two island surfaces, both via `AtollClient`:
+- **Collapsed indicator** — `AtollLiveActivityDescriptor` (id `blip.inbox`): leading Blip icon (app icon / SF Symbol `bell.badge.fill`), trailing = unread count, `allowsMusicCoexistence`.
+- **Expanded inbox tab** — `AtollNotchExperienceDescriptor` (id `blip.inbox.tab`): title "Blip" + unread badge; body = inline HTML list grouped by source; footer = "Clear all".
+
+**States:**
+| State | When | Island shows |
+|---|---|---|
+| Idle | unread = 0 | Nothing — Blip withdraws entirely; island is Atoll's normal surface. "Stays out of the way until needed." |
+| Attention | unread ≥ 1, collapsed | Indicator: icon + count; each new arrival also fires a `sneakPeek` HUD (title + subtitle). |
+| Expanded | user hovers/clicks the indicator, or hotkey | Inbox tab: grouped list; each row is clickable → jump. |
+
+**Transitions:**
+- Idle → Attention: first unread → `presentLiveActivity` + `sneakPeek`.
+- Attention → Expanded: hover/click indicator → `presentNotchExperience`; badge copied into the tab header.
+- Expanded → Attention: collapse/close. If unread ≥ 1, keep the indicator; if user clicked rows down to 0 → Idle.
+- Attention/Expanded → Idle: unread hits 0 → `dismissLiveActivity` + `dismissNotchExperience` → island clears.
+
+**New-arrival behavior:**
+- Increment unread badge; if collapsed, `sneakPeek` (title + subtitle of newest); if tab open, push the row live (coalesced 250 ms).
+- **Collapse repeats:** same surface/source already unread → fold into that surface's single row with a count badge and latest body (an agent waiting repeatedly = one row, not a wall). Generic-push sources (jump = none) group by source.
+
+**Row click (exact):**
+- Row onclick → `ActionHandler.activate(id)` → `surface.focus {surface_id}` (pin-point) → bring cmux to front.
+- Mark that notification read; badge decrements; row becomes read-styled (visible until tab close, like a browser inbox).
+- Keep the tab open so the user can act on more rows; only collapse to Idle when unread hits 0 or on explicit "Clear all"/close.
+
+**Grouping & ordering:**
+- High priority first, then newest. Row body shows the latest text; count badge = # unread on that surface. Sources ordered by latest activity.
+
+**Clear semantics:**
+- Per-row clear / click-to-read: bridge-local mark-read + best-effort reflect to cmux (cmux `notification.clear` is all-or-nothing in the documented API, so per-id clear may not be sent; rely on cmux read-state via next poll/reconcile).
+- "Clear all" (footer): mark all read → `notification.clear` to cmux → dismiss indicator + tab → Idle.
+- Read in cmux's own panel: next poll (or push + reconcile) drops the item → badge decrements → may go Idle.
+
+**Atoll absent / unauthorized (v1):**
+- Blip keeps ingest + store running; island surfaces no-op; resume presenting on `onAuthorizationChange → true` or when Atoll launches.
+- **Open product decision (see conversation):** when Atoll is down in v1, is the indicator allowed to disappear entirely (strict Atoll-only, menubar deferred to v2), or do we ship `MenuBarPresenter` now as an automatic fallback so a global indicator is always present?
+
 ### 5.5 ActionHandler
 - `activate(id)`: resolve `jump`: `.cmuxSurface(_, surfaceId)` → `{"method":"surface.focus","params":{"surface_id":<id>}}` via cmux socket (pin-point); on failure → `workspace.select` → fallback `open -a cmux`. `.openApp(bundleId)` → `open -b <bundleId>`. `.none` → mark read only. Then `markRead(id)` + reload presenters.
 - `clearAll()`: `store.clear()` + send `{"method":"notification.clear"}` to cmux to sync.
