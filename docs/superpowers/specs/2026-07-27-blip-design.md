@@ -82,7 +82,8 @@ protocol Presenter {
 
 **v1 `AtollPresenter`:**
 - Collapsed `AtollLiveActivityDescriptor` (persistent id `blip.inbox`): icon + unread badge; `sneakPeekTitle/Subtitle` shows the newest arrival; `allowsMusicCoexistence`.
-- Expanded `AtollNotchExperienceDescriptor` (persistent id `blip.inbox.tab`): tab title "Blip" + unread badge; **`webContent` with `allowWebInteraction = true`** renders a local HTML list grouped by source; foot = totals + "Clear all". Updates coalesced at 250ms to respect Atoll rate limits. Teardown via `onActivityDismiss` / `onNotchDismiss`.
+- Expanded `AtollNotchExperienceDescriptor` (persistent id `blip.inbox.tab`), presented/updated/dismissed via `AtollClient.presentNotchExperience` / `updateNotchExperience` / `dismissNotchExperience`, teardown via `onNotchExperienceDismiss`. Tab title "Blip" + unread badge; footer = totals + "Clear all". Updates coalesced at 250ms to respect Atoll rate limits.
+- **List rendering + click-back (verified against AtollExtensionKit source):** `tab.webContent = AtollWidgetWebContentDescriptor(html:, preferredHeight:, isTransparent:, allowLocalhostRequests: true, allowRemoteRequests: false, ...)`, `allowWebInteraction = true`. The `html` is a small inline list (≤20KB) of rows grouped by source; each row's onclick does `fetch("http://127.0.0.1:<port>/jump?id=<notifId>")`. The bridge's local HTTP server handles `/jump?id=` → `ActionHandler.activate(id)`. `allowLocalhostRequests` is the SDK switch that lets the sandboxed webview reach the bridge — no Atoll source changes. Bridge server replies with `Access-Control-Allow-Origin: *`; use a simple GET so no CORS preflight is needed.
 
 **v2 `MenuBarPresenter`** (later): `NSStatusItem` with unread badge + SwiftUI popover list; same rows, same ActionHandler.
 
@@ -114,8 +115,13 @@ protocol Presenter {
 - **Duplicates / stale:** dedup by `(source, id)`; reconcile read/clear from the cmux poll.
 
 ## 10. Risks / open questions (resolve in impl spike; non-blocking)
-1. `AtollWidgetWebContentDescriptor` exact fields (URL? inline HTML? a script-message-handler?): confirm clicks can reach the bridge (via localhost fetch or a registered URL scheme). **Fallback:** passive `sections` (≤6) + a single "Jump to latest unread in cmux" action (degrades pin-point → latest-unread, acceptable).
-2. cmux `notification.list` shape: confirm it returns `id` + `workspaceId` + `surfaceId` + read-state. If thinner, fall back to `notifications.hooks` push + self-managed read state.
+1. ~~`AtollWidgetWebContentDescriptor` fields unknown / click-back unclear.~~ **RESOLVED (favorably) by reading AtollExtensionKit source:** `webContent` = inline `html: String` (≤20KB) rendered in a WKWebView, with explicit `allowLocalhostRequests: Bool` + `allowWebInteraction`. Island-list row clicks `fetch` the bridge's localhost HTTP server; bridge replies with CORS `Access-Control-Allow-Origin: *`. **Remaining spike (cheap):** one-line test in `AtollXcodeSampleApp` — `webContent.html` with `<button onclick="fetch('http://127.0.0.1:9999/x')">`, a tiny localhost listener, click, confirm the request lands and wire ACAO. Insurance fallback (only if the sandbox blocks localhost despite the flag): promote `MenuBarPresenter` to v1 as the click-exact-row surface; the island live-activity still does the persistent count badge.
+2. cmux `notification.list` **response shape is undocumented** in cmux's client docs (only the request format is documented). The adapter needs each item to carry a stable `id` (dedup), `workspaceId`/`surfaceId` (jump target), and read/unread state (count + reconcile). Spike to settle, in order:
+   1. `export CMUX_SOCKET_MODE=allowAll` (or enable in cmux Settings) — required for **any** external-bridge access (polling **and** `surface.focus`).
+   2. `cmux notify --title T --body B` to create a notification.
+   3. `printf '{"id":"q","method":"notification.list","params":{}}' | nc -U "${CMUX_SOCKET_PATH:-/tmp/cmux.sock}"` → read the returned JSON, note per-item fields.
+   - If it carries id + workspaceId + surfaceId + read-state → **pull path** (design as written).
+   - If thinner → **push path**: add a `notifications.hooks` entry in `~/.config/cmux/cmux.json` whose command pipes the hook JSON (which DOES carry `workspaceId`/`surfaceId`/title/subtitle/body/effects, verified) into `blip`; the bridge owns read/unread state and back-syncs clears via `notification.clear`. `surface.focus` still works — it only needs `surfaceId`, which the hook provides.
 3. Codex non-cmux hook surface: confirm Codex CLI's event/notify hook; else rely on "Codex in cmux" (covered by the cmux adapter) or wire via generic `blip push`.
 4. `AtollExtensionKit` breaking-change risk — pin the package version.
 5. Update cadence / rate-limit headroom — coalesce to avoid Atoll limiting.
