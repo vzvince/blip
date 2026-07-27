@@ -17,7 +17,10 @@ let package = Package(
             .product(name: "AtollExtensionKit", package: "AtollExtensionKit"),
         ]),
         .executableTarget(name: "blip-cli", dependencies: ["Blip"], path: "Sources/blip-cli"),
-        .executableTarget(name: "BlipApp", dependencies: ["Blip"]),
+        .executableTarget(name: "BlipApp", dependencies: [
+            "Blip",
+            .product(name: "AtollExtensionKit", package: "AtollExtensionKit"),
+        ]),
         .testTarget(name: "BlipTests", dependencies: ["Blip"]),
     ]
 )

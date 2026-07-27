@@ -110,4 +110,40 @@ public final class CmuxRPC: Sendable {
         }
         return obj
     }
+
+    /// Send a pre-encoded frame and return the raw response bytes (no JSON parsing).
+    /// Use for methods like `notification.list` whose response is a bare top-level array
+    /// (which `call` can't `as? [String:Any]`-cast). The caller parses `[Any]` with allowFragments.
+    public func recvRaw(frame: Data) throws -> Data {
+        let fd = socket(AF_UNIX, SOCK_STREAM, 0)
+        guard fd >= 0 else { throw CmuxError.io("socket()") }
+        defer { close(fd) }
+        var addr = sockaddr_un()
+        addr.sun_family = sa_family_t(AF_UNIX)
+        let pathBytes = socketPath.utf8CString
+        let pathMax = MemoryLayout.size(ofValue: addr.sun_path)
+        _ = withUnsafeMutablePointer(to: &addr.sun_path) { ptr in
+            pathBytes.withUnsafeBufferPointer { bp in
+                memcpy(ptr, bp.baseAddress, min(bp.count, pathMax))
+            }
+        }
+        let connRes = withUnsafePointer(to: &addr) {
+            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { saPtr in
+                connect(fd, saPtr, socklen_t(MemoryLayout<sockaddr_un>.size))
+            }
+        }
+        guard connRes == 0 else { throw CmuxError.io("connect \(socketPath)") }
+        _ = frame.withUnsafeBytes { buf in
+            send(fd, buf.baseAddress, buf.count, 0)
+        }
+        var buf = Data()
+        var tmp = [UInt8](repeating: 0, count: 4096)
+        while true {
+            let n = recv(fd, &tmp, tmp.count, 0)
+            if n <= 0 { break }
+            buf.append(contentsOf: tmp.prefix(n))
+            if tmp[0..<min(n, tmp.count)].contains(0x0A) { break }
+        }
+        return buf
+    }
 }

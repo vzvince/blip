@@ -38,7 +38,7 @@ public enum AtollDescriptors {
                 preferredHeight: 360,
                 sections: [],
                 webContent: AtollWidgetWebContentDescriptor(
-                    html: placeholderHTML(rows: rows, unreadCount: unreadCount, port: port),
+                    html: InboxHTMLRenderer.render(rows: rows, unreadCount: unreadCount, port: port),
                     preferredHeight: 340,
                     isTransparent: true,
                     allowLocalhostRequests: true,
@@ -51,11 +51,5 @@ public enum AtollDescriptors {
             minimalistic: nil,
             durationHint: nil
         )
-    }
-
-    /// Minimal HTML placeholder until Task 9's `InboxHTMLRenderer` lands.
-    /// Task 9 will swap this out for the real renderer; do not rely on its output.
-    private static func placeholderHTML(rows: [RowViewModel], unreadCount: Int, port: Int) -> String {
-        "<div style=\"font-family:-apple-system;padding:12px\">Blip · \(unreadCount) unread</div>"
     }
 }
