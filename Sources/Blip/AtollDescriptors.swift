@@ -24,9 +24,9 @@ public enum AtollDescriptors {
             badgeIcon: nil,
             allowsMusicCoexistence: true,
             centerTextStyle: .inheritUser,
-            sneakPeekConfig: AtollSneakPeekConfig(enabled: true, duration: 6.0, style: .standard, showOnUpdate: true),
-            sneakPeekTitle: latest?.title,
-            sneakPeekSubtitle: latest?.subtitle
+            sneakPeekConfig: AtollSneakPeekConfig(enabled: false, duration: nil, style: nil, showOnUpdate: false),
+            sneakPeekTitle: nil,
+            sneakPeekSubtitle: nil
         )
     }
 

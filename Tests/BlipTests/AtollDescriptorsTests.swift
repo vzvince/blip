@@ -48,7 +48,7 @@ final class AtollDescriptorsTests: XCTestCase {
         XCTAssertNil(section?.subtitle, "Atoll tab is height-constrained; avoid instructional subtitle that makes the inbox feel cramped")
     }
 
-    func testCollapsedIndicatorUsesBlipAppIconAndSneakPeekOnEveryUpdate() {
+    func testCollapsedIndicatorUsesBlipAppIcon() {
         let d = AtollDescriptors.collapsed(unreadCount: 3,
             latest: AgentNotification(id:"n", source:"cmux", title:"Codex", body:"input"))
         switch d.leadingIcon {
@@ -57,7 +57,15 @@ final class AtollDescriptorsTests: XCTestCase {
         default:
             XCTFail("collapsed island should use the Blip app icon instead of a generic SF symbol")
         }
-        XCTAssertEqual(d.sneakPeekConfig?.showOnUpdate, true, "updates to an existing Atoll activity must still show the message sneak peek")
+    }
+
+    func testCollapsedIndicatorDisablesSneakPeekToAvoidAtollWhiteBlockArtifact() {
+        let d = AtollDescriptors.collapsed(unreadCount: 3,
+            latest: AgentNotification(id:"n", source:"cmux", title:"Codex", body:"input"))
+
+        XCTAssertEqual(d.sneakPeekConfig?.enabled, false, "Atoll standard extension sneak peek renders a small accent rectangle that appears as a white block beside Blip's collapsed icon")
+        XCTAssertNil(d.sneakPeekTitle, "disabled sneak peek should not carry stale title payload")
+        XCTAssertNil(d.sneakPeekSubtitle, "disabled sneak peek should not carry stale subtitle payload")
     }
 
     func testTabUsesBlipAppIconBadgeForRecognizableTabButton() {
