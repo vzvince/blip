@@ -5,6 +5,10 @@
 xcuserdata/
 *.xcscmblueprint
 DerivedData/
+*.xcodeproj
+
+# Build products
+Blip.app
 
 # SwiftPM
 .build/
