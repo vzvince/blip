@@ -45,8 +45,10 @@ final class BlipEngine: ObservableObject {
             }
         }
         try? ingress.start()
-        Task {
-            _ = try? await AtollSession.shared.requestAuthorization()
+        print("blip: up — ingress http://127.0.0.1:\(cfg.port) | cmux socket: \(cfg.cmuxSocket) | Atoll installed: \(AtollSession.shared.isAtollInstalled)")
+        Task { @MainActor in
+            let ok = (try? await AtollSession.shared.requestAuthorization()) ?? false
+            print("blip: Atoll authorized=\(ok)" + (ok ? "" : " — open Atoll → Settings → Extensions → authorize Blip, enable 'extension notch experiences' + 'show extension tabs'"))
             AtollSession.shared.registerDismiss()
         }
         startPolling()
@@ -71,7 +73,8 @@ final class BlipEngine: ObservableObject {
             let wrapped: [String:Any] = ["array": items]
             for n in CmuxMapper.mapList(wrapped) { store.upsert(n) }
         } catch {
-            // socket absent / not allowAll / parse issue: silent; generic push still works
+            // socket absent / not allowAll / parse issue — log once per poll cycle (≤1/sec)
+            print("blip: cmux poll failed: \(error) — ensure CMUX_SOCKET_MODE=allowAll and cmux running; generic push via `blip push` still works")
         }
     }
 }
