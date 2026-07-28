@@ -2,7 +2,7 @@
 import Foundation
 import Darwin
 
-public enum CmuxError: Error { case badResponse, io(String) }
+public enum CmuxError: Error { case badResponse, io(String), rpc(String) }
 
 public enum CmuxFrames {
     /// Encode one newline-terminated JSON-RPC request frame.
@@ -124,6 +124,11 @@ public final class CmuxRPC: Sendable {
         // as `["array": items]` before calling `CmuxMapper.mapList`. Resolved in Task 11.
         guard let obj = try? JSONSerialization.jsonObject(with: buf) as? [String:Any] else {
             throw CmuxError.badResponse
+        }
+        if (obj["ok"] as? Bool) == false {
+            let error = obj["error"] as? [String: Any]
+            let message = error?["message"] as? String ?? "cmux RPC failed"
+            throw CmuxError.rpc(message)
         }
         return obj
     }

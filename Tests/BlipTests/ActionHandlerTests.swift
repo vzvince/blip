@@ -4,7 +4,8 @@ final class ActionHandlerTests: XCTestCase {
     final class Stub: JumpExecutor {
         var surface: String?; var opened: String?; var cleared = false
         var focusedWorkspace: String? = nil
-        func focusSurface(workspaceId: String, surfaceId: String) { focusedWorkspace = workspaceId; surface = surfaceId }
+        var openedNotification: String? = nil
+        func openCmuxNotification(id: String, workspaceId: String, surfaceId: String) { openedNotification = id; focusedWorkspace = workspaceId; surface = surfaceId }
         func openApp(bundleId: String) { opened = bundleId }
         func clearCmux() { cleared = true }
     }
@@ -16,6 +17,7 @@ final class ActionHandlerTests: XCTestCase {
         let jump = Stub()
         let action = ActionHandler(store: store, jump: jump)
         action.activate(rowID: "cmux:s1")
+        XCTAssertEqual(jump.openedNotification, "n1")
         XCTAssertEqual(jump.surface, "s1")
         XCTAssertEqual(jump.focusedWorkspace, "w")
         XCTAssertEqual(store.unreadCount, 0)   // group marked read
@@ -34,6 +36,7 @@ final class ActionHandlerTests: XCTestCase {
         // the row id is the collapseKey cmux:s1; row.jumpID should be n2
         XCTAssertEqual(store.rows().first { $0.id == "cmux:s1" }?.jumpID, "n2")
         action.activate(rowID: "cmux:s1")
+        XCTAssertEqual(jump.openedNotification, "n2")
         XCTAssertEqual(jump.surface, "s1")
     }
     func testActivateUnknownRowIsNoop() {

@@ -4,6 +4,7 @@ import Foundation
 public final class Store: @unchecked Sendable {
     private let lock = NSLock()
     private var items: [String: AgentNotification] = [:]
+    private var suppressedIDs: Set<String> = []
     private let capacity: Int
     public var onChange: ((ConnectionState) -> Void)?
 
@@ -11,6 +12,7 @@ public final class Store: @unchecked Sendable {
 
     public func upsert(_ n: AgentNotification) {
         lock.lock(); defer { lock.unlock() }
+        guard !suppressedIDs.contains(n.id) else { return }
         items[n.id] = n
         trimLocked()
         onChange?(.connected)
@@ -24,15 +26,19 @@ public final class Store: @unchecked Sendable {
 
     public func markGroupRead(key collapseKey: String) {
         lock.lock(); defer { lock.unlock() }
-        for id in items.keys where items[id]?.collapseKey == collapseKey {
+        for id in Array(items.keys) where items[id]?.collapseKey == collapseKey {
+            suppressedIDs.insert(id)
             items.removeValue(forKey: id)
         }
+        trimSuppressedLocked()
         onChange?(.connected)
     }
 
     public func clear() {
         lock.lock(); defer { lock.unlock() }
+        suppressedIDs.formUnion(items.keys)
         items.removeAll()
+        trimSuppressedLocked()
         onChange?(.disconnected)
     }
 
@@ -74,6 +80,12 @@ public final class Store: @unchecked Sendable {
         while items.count > capacity {
             let oldest = items.values.min(by: { $0.createdAt < $1.createdAt })!
             items.removeValue(forKey: oldest.id)
+        }
+    }
+
+    private func trimSuppressedLocked() {
+        while suppressedIDs.count > capacity {
+            suppressedIDs.remove(suppressedIDs.first!)
         }
     }
 }

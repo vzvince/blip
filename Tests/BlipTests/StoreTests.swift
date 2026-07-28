@@ -33,6 +33,29 @@ final class StoreTests: XCTestCase {
         XCTAssertEqual(s.unreadCount, 0)
         XCTAssertTrue(s.rows().isEmpty)
     }
+    func testMarkGroupReadSuppressesFutureReimportOfSameCmuxNotificationIDs() {
+        let s = Store()
+        let n = mk("1", "a", "x", 1)
+        s.upsert(n)
+        s.markGroupRead(key: "cmux:a")
+
+        s.upsert(n)
+
+        XCTAssertEqual(s.unreadCount, 0, "polling cmux after activation must not immediately re-import the same notification as unread")
+        XCTAssertTrue(s.rows().isEmpty)
+    }
+
+    func testClearSuppressesFutureReimportOfCurrentItems() {
+        let s = Store()
+        let n = mk("1", "a", "x", 1)
+        s.upsert(n)
+        s.clear()
+
+        s.upsert(n)
+
+        XCTAssertEqual(s.unreadCount, 0, "clear should not let the next cmux poll resurrect locally cleared notifications")
+    }
+
     func testCapacityTrimsOldest() {
         let s = Store(capacity: 2)
         s.upsert(mk("1", "a", "x", 1))
