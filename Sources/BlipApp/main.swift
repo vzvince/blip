@@ -101,16 +101,7 @@ final class BlipEngine: ObservableObject {
         }
         try? ingress.start()
         print("blip: up — ingress http://127.0.0.1:\(cfg.port) | cmux socket: \(cfg.cmuxSocket) | Atoll installed: \(AtollSession.shared.isAtollInstalled) | Atoll running: \(AtollSession.shared.isAtollRunning)")
-        Task { @MainActor in
-            do {
-                let ok = try await atollAdapter.requestAuthorization()
-                print("blip: Atoll RPC authorized=\(ok)")
-                await presenter.resetRemoteSurfaces()
-                presenter.reload(unread: store.unreadCount, rows: store.rows(), connection: .connected)
-            } catch {
-                print("blip: Atoll RPC authorization failed — \(error)")
-            }
-        }
+        startAtollAuthorizationLoop(adapter: atollAdapter)
         startPolling()
     }
 
@@ -135,6 +126,26 @@ final class BlipEngine: ObservableObject {
         Task { @MainActor in
             if delayNanos > 0 { try? await Task.sleep(nanoseconds: delayNanos) }
             await presenter.setExpanded(true)
+        }
+    }
+
+    private func startAtollAuthorizationLoop(adapter: AtollRPCSessionAdapter) {
+        Task { @MainActor in
+            var attempt = 0
+            while true {
+                attempt += 1
+                do {
+                    let ok = try await adapter.requestAuthorization()
+                    print("blip: Atoll RPC authorized=\(ok)")
+                    await presenter.resetRemoteSurfaces()
+                    presenter.reload(unread: store.unreadCount, rows: store.rows(), connection: .connected)
+                    return
+                } catch {
+                    let delaySeconds = min(8.0, Double(attempt))
+                    print("blip: Atoll RPC authorization failed (attempt \(attempt)); retrying in \(delaySeconds)s — \(error)")
+                    try? await Task.sleep(nanoseconds: UInt64(delaySeconds * 1_000_000_000))
+                }
+            }
         }
     }
 

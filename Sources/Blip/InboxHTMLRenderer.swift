@@ -24,12 +24,20 @@ public enum InboxHTMLRenderer {
               <div style="font-weight:600;margin-bottom:8px;color:#fff">cmux · \(esc(String(unreadCount))) unread</div>
             """
         }
-        let visibleRows = compact ? Array(rows.prefix(1)) : rows
+        let visibleRows = compact ? Array(rows.prefix(3)) : rows
+        let compactList = compact && visibleRows.count > 1
         for r in visibleRows {
             let url = "\(base)/jump?id=\(esc(r.id, forURL: true))"
             let dot = r.isPriority ? "🔴" : "🔵"
             let countBadge = r.unreadCount > 1 ? "<span style='background:#444;color:#fff;border-radius:8px;padding:1px 6px;font-size:11px;margin-left:6px'>\(esc(String(r.unreadCount)))</span>" : ""
-            if compact {
+            if compactList {
+                out += """
+                <a href="\(url)" style="display:block;box-sizing:border-box;height:44px;overflow:hidden;text-decoration:none;cursor:pointer;padding:5px 8px;border-radius:9px;border:1px solid #333;background:rgba(255,255,255,0.04);color:#fff;margin-bottom:4px">
+                  <div style="display:flex;gap:6px;align-items:center;min-width:0;color:#fff;font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><span>\(dot)</span><span style="overflow:hidden;text-overflow:ellipsis">\(esc(r.title))</span>\(countBadge)</div>
+                  <div style="display:block;color:#a7a7ad;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px">\(esc(r.sourceLabel)) · \(esc(r.body))</div>
+                </a>
+                """
+            } else if compact {
                 out += """
                 <a href="\(url)" style="display:block;box-sizing:border-box;height:78px;overflow:hidden;text-decoration:none;cursor:pointer;padding:7px 9px;border-radius:10px;border:1px solid #3a3a3c;background:rgba(255,255,255,0.045);color:#fff">
                   <div style="display:block;color:#9a9aa0;font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:4px">\(esc(r.sourceLabel))</div>

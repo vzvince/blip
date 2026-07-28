@@ -52,9 +52,18 @@ public enum AtollDescriptors {
     }
 
     private static func interactiveInbox(rows: [RowViewModel], unreadCount: Int, port: Int) -> AtollWidgetWebContentDescriptor {
-        AtollWidgetWebContentDescriptor(
+        let visibleRowCount = min(rows.count, 3)
+        let preferredHeight: Double
+        if rows.isEmpty {
+            preferredHeight = 120
+        } else if visibleRowCount == 1 {
+            preferredHeight = 86
+        } else {
+            preferredHeight = Double(visibleRowCount * 48 + 12)
+        }
+        return AtollWidgetWebContentDescriptor(
             html: InboxHTMLRenderer.render(rows: rows, unreadCount: unreadCount, port: port, includeHeader: false, compact: true),
-            preferredHeight: rows.isEmpty ? 120 : 86,
+            preferredHeight: preferredHeight,
             isTransparent: true,
             allowLocalhostRequests: true,
             maximumContentWidth: 640

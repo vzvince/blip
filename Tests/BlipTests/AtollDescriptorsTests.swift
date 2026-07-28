@@ -132,6 +132,23 @@ final class AtollDescriptorsTests: XCTestCase {
         XCTAssertFalse(webContent.html.contains("http://127.0.0.1:9042/clear"), "compact Atoll card should not reserve height for Clear all; clicking the visible row jumps and clears that notification")
     }
 
+    func testTabShowsCompactListWhenMultipleRowsAreUnread() {
+        let rows = [
+            RowViewModel(id:"n1", sourceLabel:"Codex", title:"First", subtitle:"1m ago", body:"one", unreadCount: 1, isPriority: false, jumpID: "n1"),
+            RowViewModel(id:"n2", sourceLabel:"Claude", title:"Second", subtitle:"1m ago", body:"two", unreadCount: 1, isPriority: false, jumpID: "n2"),
+            RowViewModel(id:"n3", sourceLabel:"Aider", title:"Third", subtitle:"1m ago", body:"three", unreadCount: 1, isPriority: false, jumpID: "n3")
+        ]
+        let d = AtollDescriptors.tab(rows: rows, unreadCount: 3, port: 9042)
+
+        guard case .webView(let webContent)? = d.tab?.sections.first?.elements.first else {
+            return XCTFail("visible inbox content should be web content")
+        }
+        XCTAssertTrue(webContent.html.contains("First"))
+        XCTAssertTrue(webContent.html.contains("Second"), "Atoll should preserve the inbox-list experience when multiple messages are unread")
+        XCTAssertTrue(webContent.html.contains("Third"), "compact list should fit multiple clickable rows without scrolling")
+        XCTAssertLessThanOrEqual(webContent.preferredHeight, 170, "compact list should stay short enough for Atoll's clipped island")
+    }
+
     func testTabRequestsMaximumAtollHeightForReadableInbox() {
         let d = AtollDescriptors.tab(rows: [], unreadCount: 0, port: 9042)
 
