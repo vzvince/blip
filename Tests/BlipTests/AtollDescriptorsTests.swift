@@ -82,12 +82,19 @@ final class AtollDescriptorsTests: XCTestCase {
     }
 
 
-    func testTabUsesNativeRenderingInsteadOfTallEmbeddedWebViewInAtoll() {
+    func testTabProvidesInteractiveWebContentForJumpAndClearActions() {
         let rows = [RowViewModel(id:"n1", sourceLabel:"Codex", title:"Needs input", subtitle:"1m ago",
                                  body:"Please review", unreadCount: 1, isPriority: false, jumpID: "n1")]
         let d = AtollDescriptors.tab(rows: rows, unreadCount: 1, port: 9042)
 
-        XCTAssertNil(d.tab?.webContent, "Atoll tab should not embed a tall web view because Atoll clamps tab height and clips the inbox")
+        guard let tab = d.tab else { return XCTFail("tab descriptor should include tab configuration") }
+        guard let webContent = tab.webContent else { return XCTFail("Atoll tab should include web content so notification rows can be clicked") }
+        XCTAssertTrue(tab.allowWebInteraction, "Atoll must route clicks into the embedded web content for jump/clear actions")
+        XCTAssertTrue(webContent.allowLocalhostRequests, "web content must be allowed to call Blip's localhost bridge")
+        XCTAssertTrue(webContent.isTransparent, "web content should blend into Atoll's island panel")
+        XCTAssertEqual(webContent.preferredHeight, 220, "interactive list should be compact enough to coexist with native fallback content")
+        XCTAssertTrue(webContent.html.contains("http://127.0.0.1:9042/jump?id=n1"), "row click should call the Blip jump endpoint")
+        XCTAssertTrue(webContent.html.contains("http://127.0.0.1:9042/clear"), "tab should expose a clear action for unread state")
     }
 
     func testTabRequestsMaximumAtollHeightForReadableInbox() {

@@ -42,8 +42,14 @@ public enum AtollDescriptors {
                 badgeIcon: appIcon,
                 preferredHeight: 420,
                 sections: nativeSections(rows: rows, unreadCount: unreadCount),
-                webContent: nil,
-                allowWebInteraction: false,
+                webContent: AtollWidgetWebContentDescriptor(
+                    html: InboxHTMLRenderer.render(rows: rows, unreadCount: unreadCount, port: port),
+                    preferredHeight: rows.isEmpty ? 120 : 220,
+                    isTransparent: true,
+                    allowLocalhostRequests: true,
+                    maximumContentWidth: 640
+                ),
+                allowWebInteraction: true,
                 footnote: rows.isEmpty ? "Blip is running in the menu bar" : nil
             ),
             minimalistic: nil,
