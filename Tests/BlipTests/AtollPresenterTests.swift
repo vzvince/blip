@@ -52,7 +52,8 @@ final class AtollPresenterTests: XCTestCase {
         // via Task.sleep(coalesceNanos), so the presentActivity side-effect lands only after.
         try? await Task.sleep(nanoseconds: 5_000_000)
         XCTAssertTrue(p.state.activity, "should present activity when unread>0")
-        XCTAssertFalse(p.state.tab, "collapsed by default")
+        XCTAssertTrue(p.state.tab, "Atoll only shows message details in extension tabs, so unread messages must register the Blip tab immediately")
+        XCTAssertEqual(s.presentTabCount, 1, "unread reload should make the Blip tab visible in Atoll's tab bar")
     }
     @MainActor
     func testExpandedBitFollowsExplicitOpen() async {

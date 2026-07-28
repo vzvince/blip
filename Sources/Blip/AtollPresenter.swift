@@ -58,12 +58,16 @@ public final class AtollPresenter: Presenter {
                     state.activity = false
                 }
             }
-            if state.tab {
-                do {
-                    try await session.updateTab(AtollDescriptors.tab(rows: p.rows, unreadCount: p.unread, port: port))
-                } catch {
-                    state.tab = false
+            do {
+                let tab = AtollDescriptors.tab(rows: p.rows, unreadCount: p.unread, port: port)
+                if state.tab {
+                    try await session.updateTab(tab)
+                } else {
+                    try await session.presentTab(tab)
+                    state.tab = true
                 }
+            } catch {
+                state.tab = false
             }
         } else {
             if state.activity { try? await session.dismissActivity(); state.activity = false }
