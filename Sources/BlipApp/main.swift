@@ -71,6 +71,7 @@ final class BlipEngine: ObservableObject {
     private let presenter: AtollPresenter
     private var poll: Task<Void, Never>?
     private var config: BlipConfig
+    private let cmuxImportCutoff: Date
 
     var status: MenuBarStatus {
         MenuBarStatus(unreadCount: unreadCount,
@@ -81,6 +82,9 @@ final class BlipEngine: ObservableObject {
 
     init() {
         let cfg = BlipConfig.load(); self.config = cfg
+        // cmux can mark CLI-generated notifications read almost immediately; keep
+        // fresh read notifications while still ignoring historical read backlog.
+        self.cmuxImportCutoff = Date().addingTimeInterval(-5)
         let cmux = CmuxRPC(socketPath: cfg.cmuxSocket); self.cmux = cmux
         let jump = CmuxJumpExecutor(rpc: cmux); self.jump = jump
         let action = ActionHandler(store: store, jump: jump); self.action = action
@@ -150,7 +154,7 @@ final class BlipEngine: ObservableObject {
         do {
             let frame = CmuxFrames.encode(id: "list", method: "notification.list", params: [:])
             let raw = try cmux.recvRaw(frame: frame)
-            for n in try CmuxMapper.mapListData(raw) { store.upsert(n) }
+            for n in try CmuxMapper.mapListData(raw, includeAlreadyReadCreatedAfter: cmuxImportCutoff) { store.upsert(n) }
         } catch {
             // socket absent / not allowAll / parse issue — log once per poll cycle (≤1/sec)
             print("blip: cmux poll failed: \(error) — ensure CMUX_SOCKET_MODE=allowAll and cmux running; generic push via `blip push` still works")

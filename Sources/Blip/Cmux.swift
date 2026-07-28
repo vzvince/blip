@@ -34,7 +34,7 @@ public enum CmuxMapper {
     /// Accepts: a bare array `{...}`-wrapped under one of items/notifications/result,
     /// OR (when the response is a bare array) the parser that fed us should have wrapped it.
     /// Drops items already read (is_read == true OR read == true) or lacking a surface id.
-    public static func mapList(_ response: [String:Any]) -> [AgentNotification] {
+    public static func mapList(_ response: [String:Any], includeAlreadyReadCreatedAfter cutoff: Date? = nil) -> [AgentNotification] {
         let result = response["result"] as? [String: Any]
         let arr = (response["items"] as? [[String:Any]])
                ?? (response["notifications"] as? [[String:Any]])
@@ -45,7 +45,10 @@ public enum CmuxMapper {
                ?? []
         return arr.compactMap { d -> AgentNotification? in
             let alreadyRead = (d["is_read"] as? Bool) == true || (d["read"] as? Bool) == true
-            if alreadyRead { return nil }
+            let createdAt = date(d)
+            if alreadyRead {
+                guard let cutoff, createdAt >= cutoff else { return nil }
+            }
             let ws = str(d, ["workspaceId","workspace_id","workspace"])
             let sf = str(d, ["surfaceId","surface_id","surface"])
             guard !sf.isEmpty else { return nil }     // nothing to jump to
@@ -60,20 +63,20 @@ public enum CmuxMapper {
                 title: title,
                 subtitle: subtitle,
                 body: body,
-                createdAt: date(d),
+                createdAt: createdAt,
                 priority: (str(d, ["priority"]) == "high") ? .high : .normal,
                 jump: .cmuxSurface(workspaceId: ws, surfaceId: sf),
                 sourceLabel: tab.isEmpty ? "cmux" : tab)
         }
     }
 
-    public static func mapListData(_ data: Data) throws -> [AgentNotification] {
+    public static func mapListData(_ data: Data, includeAlreadyReadCreatedAfter cutoff: Date? = nil) throws -> [AgentNotification] {
         let object = try JSONSerialization.jsonObject(with: data, options: [.allowFragments])
         if let items = object as? [[String: Any]] {
-            return mapList(["array": items])
+            return mapList(["array": items], includeAlreadyReadCreatedAfter: cutoff)
         }
         if let response = object as? [String: Any] {
-            return mapList(response)
+            return mapList(response, includeAlreadyReadCreatedAfter: cutoff)
         }
         throw CmuxError.badResponse
     }

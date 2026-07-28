@@ -107,4 +107,18 @@ final class CmuxTests: XCTestCase {
         XCTAssertEqual(got.map(\.id), ["n-data"])
     }
 
+    func testMapListDataIncludesAlreadyReadNotificationsCreatedAfterCutoff() throws {
+        let raw = """
+        {"result":{"notifications":[
+          {"id":"new-read","workspace_id":"w","surface_id":"s","title":"cmux notify","body":"Marked read quickly","is_read":true,"created_at":"2026-07-28T02:10:44Z"},
+          {"id":"old-read","workspace_id":"w","surface_id":"s2","title":"old","body":"old","is_read":true,"created_at":"2026-07-28T02:00:00Z"}
+        ]},"ok":true,"id":"list"}
+        """.data(using: .utf8)!
+        let cutoff = ISO8601DateFormatter().date(from: "2026-07-28T02:05:00Z")!
+
+        let got = try CmuxMapper.mapListData(raw, includeAlreadyReadCreatedAfter: cutoff)
+
+        XCTAssertEqual(got.map(\.id), ["new-read"])
+    }
+
 }
