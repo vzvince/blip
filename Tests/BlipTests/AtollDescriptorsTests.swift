@@ -51,7 +51,7 @@ final class AtollDescriptorsTests: XCTestCase {
         XCTAssertFalse(webContent.html.contains("cmux · 2 unread"), "section title already shows unread count; a duplicate web header pushes message cards below Atoll's visible area")
         XCTAssertTrue(webContent.html.contains("color:#fff"), "transparent Atoll web content must set a light foreground color instead of WebKit's black default")
         XCTAssertTrue(webContent.html.contains("Needs input"), "first visible web content should include the notification title")
-        XCTAssertLessThanOrEqual(webContent.preferredHeight, 160, "compact embedded web content should keep the first card visible in Atoll's clipped island")
+        XCTAssertLessThanOrEqual(webContent.preferredHeight, 90, "embedded Atoll content must fit without relying on nested web view scrolling")
     }
 
     func testTabRendersInteractiveInboxAsFirstVisibleSectionElement() {
@@ -72,13 +72,13 @@ final class AtollDescriptorsTests: XCTestCase {
         XCTAssertNil(d.tab?.webContent, "avoid rendering a second duplicate interactive inbox below the visible section")
     }
 
-    func testTabNativeSectionIsCompactWithoutInstructionSubtitle() {
+    func testTabUnreadSectionAvoidsNativeHeaderSoClickableCardFits() {
         let rows = [RowViewModel(id:"n1", sourceLabel:"Codex", title:"Needs input", subtitle:"1m ago",
                                  body:"Please review", unreadCount: 1, isPriority: false, jumpID: "n1")]
         let d = AtollDescriptors.tab(rows: rows, unreadCount: 1, port: 9042)
 
         let section = d.tab?.sections.first
-        XCTAssertEqual(section?.title, "1 unread")
+        XCTAssertNil(section?.title, "Atoll tab is height-constrained; avoid a native unread header that pushes the clickable card below the visible clipped area")
         XCTAssertNil(section?.subtitle, "Atoll tab is height-constrained; avoid instructional subtitle that makes the inbox feel cramped")
     }
 
@@ -116,7 +116,7 @@ final class AtollDescriptorsTests: XCTestCase {
     }
 
 
-    func testTabProvidesInteractiveWebContentForJumpAndClearActions() {
+    func testTabProvidesCompactInteractiveWebContentForJumpWithoutClearLink() {
         let rows = [RowViewModel(id:"n1", sourceLabel:"Codex", title:"Needs input", subtitle:"1m ago",
                                  body:"Please review", unreadCount: 1, isPriority: false, jumpID: "n1")]
         let d = AtollDescriptors.tab(rows: rows, unreadCount: 1, port: 9042)
@@ -127,9 +127,9 @@ final class AtollDescriptorsTests: XCTestCase {
         XCTAssertTrue(tab.allowWebInteraction, "Atoll must route clicks into the embedded web content for jump/clear actions")
         XCTAssertTrue(webContent.allowLocalhostRequests, "web content must be allowed to call the localhost bridge")
         XCTAssertTrue(webContent.isTransparent, "web content should blend into Atoll panel")
-        XCTAssertEqual(webContent.preferredHeight, 150, "interactive list should fit in the visible Atoll section")
+        XCTAssertEqual(webContent.preferredHeight, 86, "interactive card should fit without nested scrolling in Atoll")
         XCTAssertTrue(webContent.html.contains("http://127.0.0.1:9042/jump?id=n1"), "row click should call the Blip jump endpoint")
-        XCTAssertTrue(webContent.html.contains("http://127.0.0.1:9042/clear"), "tab should expose a clear action for unread state")
+        XCTAssertFalse(webContent.html.contains("http://127.0.0.1:9042/clear"), "compact Atoll card should not reserve height for Clear all; clicking the visible row jumps and clears that notification")
     }
 
     func testTabRequestsMaximumAtollHeightForReadableInbox() {

@@ -54,7 +54,7 @@ public enum AtollDescriptors {
     private static func interactiveInbox(rows: [RowViewModel], unreadCount: Int, port: Int) -> AtollWidgetWebContentDescriptor {
         AtollWidgetWebContentDescriptor(
             html: InboxHTMLRenderer.render(rows: rows, unreadCount: unreadCount, port: port, includeHeader: false, compact: true),
-            preferredHeight: rows.isEmpty ? 120 : 150,
+            preferredHeight: rows.isEmpty ? 120 : 86,
             isTransparent: true,
             allowLocalhostRequests: true,
             maximumContentWidth: 640
@@ -77,7 +77,7 @@ public enum AtollDescriptors {
         return [
             AtollNotchContentSection(
                 id: "blip.native.inbox",
-                title: rows.isEmpty ? "All clear" : "\(unreadCount) unread",
+                title: rows.isEmpty ? "All clear" : nil,
                 subtitle: nil,
                 layout: .stack,
                 elements: elements
