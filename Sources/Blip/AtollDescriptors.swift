@@ -41,14 +41,8 @@ public enum AtollDescriptors {
                 iconSymbolName: "bell.badge.fill",
                 badgeIcon: appIcon,
                 preferredHeight: 420,
-                sections: nativeSections(rows: rows, unreadCount: unreadCount),
-                webContent: AtollWidgetWebContentDescriptor(
-                    html: InboxHTMLRenderer.render(rows: rows, unreadCount: unreadCount, port: port),
-                    preferredHeight: rows.isEmpty ? 120 : 220,
-                    isTransparent: true,
-                    allowLocalhostRequests: true,
-                    maximumContentWidth: 640
-                ),
+                sections: nativeSections(rows: rows, unreadCount: unreadCount, port: port),
+                webContent: nil,
                 allowWebInteraction: true,
                 footnote: rows.isEmpty ? "Blip is running in the menu bar" : nil
             ),
@@ -57,7 +51,17 @@ public enum AtollDescriptors {
         )
     }
 
-    private static func nativeSections(rows: [RowViewModel], unreadCount: Int) -> [AtollNotchContentSection] {
+    private static func interactiveInbox(rows: [RowViewModel], unreadCount: Int, port: Int) -> AtollWidgetWebContentDescriptor {
+        AtollWidgetWebContentDescriptor(
+            html: InboxHTMLRenderer.render(rows: rows, unreadCount: unreadCount, port: port),
+            preferredHeight: rows.isEmpty ? 120 : 220,
+            isTransparent: true,
+            allowLocalhostRequests: true,
+            maximumContentWidth: 640
+        )
+    }
+
+    private static func nativeSections(rows: [RowViewModel], unreadCount: Int, port: Int) -> [AtollNotchContentSection] {
         var elements: [AtollWidgetContentElement]
 
         if rows.isEmpty {
@@ -65,14 +69,9 @@ public enum AtollDescriptors {
                 .text("All clear — no pending notifications", font: .system(size: 12, weight: .regular), color: .gray)
             ]
         } else {
-            elements = rows.prefix(3).map { row in
-                let prefix = row.isPriority ? "⚠︎ " : ""
-                let count = row.unreadCount > 1 ? " (\(row.unreadCount))" : ""
-                let summary = "\(prefix)\(row.sourceLabel): \(row.title)\(count) — \(row.body)"
-                return .text(summary.truncatedForAtoll(maxLength: 150),
-                             font: .system(size: 12, weight: row.isPriority ? .semibold : .regular),
-                             color: row.isPriority ? .orange : .white)
-            }
+            elements = [
+                .webView(interactiveInbox(rows: rows, unreadCount: unreadCount, port: port))
+            ]
         }
 
         return [
@@ -84,13 +83,5 @@ public enum AtollDescriptors {
                 elements: elements
             )
         ]
-    }
-}
-
-private extension String {
-    func truncatedForAtoll(maxLength: Int) -> String {
-        guard count > maxLength else { return self }
-        let end = index(startIndex, offsetBy: max(0, maxLength - 1))
-        return String(self[..<end]) + "…"
     }
 }

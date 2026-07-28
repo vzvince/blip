@@ -38,6 +38,25 @@ final class AtollDescriptorsTests: XCTestCase {
         }
     }
 
+
+    func testTabRendersInteractiveInboxAsFirstVisibleSectionElement() {
+        let rows = [RowViewModel(id:"n1", sourceLabel:"Codex", title:"Needs input", subtitle:"1m ago",
+                                 body:"Please review", unreadCount: 1, isPriority: false, jumpID: "n1")]
+        let d = AtollDescriptors.tab(rows: rows, unreadCount: 1, port: 9042)
+
+        guard let firstElement = d.tab?.sections.first?.elements.first else {
+            return XCTFail("tab should render inbox content in the first visible section")
+        }
+        switch firstElement {
+        case .webView(let webContent):
+            XCTAssertTrue(webContent.allowLocalhostRequests)
+            XCTAssertTrue(webContent.html.contains("http://127.0.0.1:9042/jump?id=n1"))
+        default:
+            XCTFail("the first visible inbox element must be a webView; native text rows are not clickable in Atoll")
+        }
+        XCTAssertNil(d.tab?.webContent, "avoid rendering a second duplicate interactive inbox below the visible section")
+    }
+
     func testTabNativeSectionIsCompactWithoutInstructionSubtitle() {
         let rows = [RowViewModel(id:"n1", sourceLabel:"Codex", title:"Needs input", subtitle:"1m ago",
                                  body:"Please review", unreadCount: 1, isPriority: false, jumpID: "n1")]
@@ -88,11 +107,12 @@ final class AtollDescriptorsTests: XCTestCase {
         let d = AtollDescriptors.tab(rows: rows, unreadCount: 1, port: 9042)
 
         guard let tab = d.tab else { return XCTFail("tab descriptor should include tab configuration") }
-        guard let webContent = tab.webContent else { return XCTFail("Atoll tab should include web content so notification rows can be clicked") }
+        guard let firstElement = tab.sections.first?.elements.first else { return XCTFail("tab should include visible inbox content") }
+        guard case .webView(let webContent) = firstElement else { return XCTFail("visible inbox content should be web content so notification rows can be clicked") }
         XCTAssertTrue(tab.allowWebInteraction, "Atoll must route clicks into the embedded web content for jump/clear actions")
-        XCTAssertTrue(webContent.allowLocalhostRequests, "web content must be allowed to call Blip's localhost bridge")
-        XCTAssertTrue(webContent.isTransparent, "web content should blend into Atoll's island panel")
-        XCTAssertEqual(webContent.preferredHeight, 220, "interactive list should be compact enough to coexist with native fallback content")
+        XCTAssertTrue(webContent.allowLocalhostRequests, "web content must be allowed to call the localhost bridge")
+        XCTAssertTrue(webContent.isTransparent, "web content should blend into Atoll panel")
+        XCTAssertEqual(webContent.preferredHeight, 220, "interactive list should fit in the visible Atoll section")
         XCTAssertTrue(webContent.html.contains("http://127.0.0.1:9042/jump?id=n1"), "row click should call the Blip jump endpoint")
         XCTAssertTrue(webContent.html.contains("http://127.0.0.1:9042/clear"), "tab should expose a clear action for unread state")
     }
