@@ -39,6 +39,21 @@ final class AtollDescriptorsTests: XCTestCase {
     }
 
 
+
+    func testTabInteractiveInboxStartsWithReadableMessageCardNotDuplicateHeader() {
+        let rows = [RowViewModel(id:"n1", sourceLabel:"Codex", title:"Needs input", subtitle:"1m ago",
+                                 body:"Please review", unreadCount: 2, isPriority: false, jumpID: "n1")]
+        let d = AtollDescriptors.tab(rows: rows, unreadCount: 2, port: 9042)
+
+        guard case .webView(let webContent)? = d.tab?.sections.first?.elements.first else {
+            return XCTFail("visible inbox content should be web content")
+        }
+        XCTAssertFalse(webContent.html.contains("cmux · 2 unread"), "section title already shows unread count; a duplicate web header pushes message cards below Atoll's visible area")
+        XCTAssertTrue(webContent.html.contains("color:#fff"), "transparent Atoll web content must set a light foreground color instead of WebKit's black default")
+        XCTAssertTrue(webContent.html.contains("Needs input"), "first visible web content should include the notification title")
+        XCTAssertLessThanOrEqual(webContent.preferredHeight, 160, "compact embedded web content should keep the first card visible in Atoll's clipped island")
+    }
+
     func testTabRendersInteractiveInboxAsFirstVisibleSectionElement() {
         let rows = [RowViewModel(id:"n1", sourceLabel:"Codex", title:"Needs input", subtitle:"1m ago",
                                  body:"Please review", unreadCount: 1, isPriority: false, jumpID: "n1")]
@@ -112,7 +127,7 @@ final class AtollDescriptorsTests: XCTestCase {
         XCTAssertTrue(tab.allowWebInteraction, "Atoll must route clicks into the embedded web content for jump/clear actions")
         XCTAssertTrue(webContent.allowLocalhostRequests, "web content must be allowed to call the localhost bridge")
         XCTAssertTrue(webContent.isTransparent, "web content should blend into Atoll panel")
-        XCTAssertEqual(webContent.preferredHeight, 220, "interactive list should fit in the visible Atoll section")
+        XCTAssertEqual(webContent.preferredHeight, 150, "interactive list should fit in the visible Atoll section")
         XCTAssertTrue(webContent.html.contains("http://127.0.0.1:9042/jump?id=n1"), "row click should call the Blip jump endpoint")
         XCTAssertTrue(webContent.html.contains("http://127.0.0.1:9042/clear"), "tab should expose a clear action for unread state")
     }
