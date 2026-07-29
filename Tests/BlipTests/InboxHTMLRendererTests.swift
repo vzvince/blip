@@ -53,6 +53,14 @@ final class InboxHTMLRendererTests: XCTestCase {
         XCTAssertFalse(html.contains("overflow:auto"), "Atoll nested web view scrolling is unreliable; compact content must not depend on scrolling")
     }
 
+    func testCompactRowsUseFetchOnClickAsFallbackForAtollTopLevelWebContent() {
+        let rows = [RowViewModel(id:"n1", sourceLabel:"cmux", title:"Needs input", subtitle:"", body:"body", unreadCount:1, isPriority:false, jumpID:"n1")]
+        let html = InboxHTMLRenderer.render(rows: rows, unreadCount: 1, port: 9042, includeHeader: false, compact: true)
+
+        XCTAssertTrue(html.contains(#"href="http://127.0.0.1:9042/jump?id=n1""#))
+        XCTAssertTrue(html.contains(#"onclick="event.preventDefault();fetch('http://127.0.0.1:9042/jump?id=n1')""#), "Atoll top-level web content may not navigate anchors; use fetch as an activation fallback")
+    }
+
     func testEmptyState() {
         let html = InboxHTMLRenderer.render(rows: [], unreadCount: 0, port: 9042)
         XCTAssertTrue(html.lowercased().contains("all clear"))

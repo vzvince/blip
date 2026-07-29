@@ -135,7 +135,7 @@ final class BlipEngine: ObservableObject {
                 guard let self else { return }
                 let unread = self.store.unreadCount
                 self.unreadCount = unread
-                self.presenter.reload(unread: unread, rows: self.store.rows(), connection: .connected)
+                self.presenter.reload(unread: unread, rows: self.store.notificationRows(), connection: .connected)
             }
         }
         try? ingress.start()
@@ -177,7 +177,7 @@ final class BlipEngine: ObservableObject {
                     let ok = try await adapter.requestAuthorization()
                     print("blip: Atoll RPC authorized=\(ok)")
                     await presenter.resetRemoteSurfaces()
-                    presenter.reload(unread: store.unreadCount, rows: store.rows(), connection: .connected)
+                    presenter.reload(unread: store.unreadCount, rows: store.notificationRows(), connection: .connected)
                     return
                 } catch {
                     let delaySeconds = min(8.0, Double(attempt))

@@ -30,19 +30,20 @@ public enum InboxHTMLRenderer {
         let compactList = compact && visibleRows.count > 1
         for (idx, r) in visibleRows.enumerated() {
             let url = "\(base)/jump?id=\(esc(r.id, forURL: true))"
+            let click = "event.preventDefault();fetch('\(esc(url, forJavaScript: true))')"
             let dot = r.isPriority ? "🔴" : "🔵"
             let countBadge = r.unreadCount > 1 ? "<span style='background:#444;color:#fff;border-radius:8px;padding:1px 6px;font-size:11px;margin-left:6px'>\(esc(String(r.unreadCount)))</span>" : ""
             if compactList {
                 let remaining = idx == visibleRows.count - 1 && rows.count > visibleRows.count ? "<span style=\"flex:0 0 auto;color:#8e8e93;font-size:10px;font-weight:700;margin-left:4px\">+\(esc(String(rows.count - visibleRows.count))) more</span>" : ""
                 out += """
-                <a href="\(url)" style="display:flex;box-sizing:border-box;height:28px;overflow:hidden;text-decoration:none;cursor:pointer;padding:2px 0;color:#fff;align-items:center;gap:7px;border-radius:0;background:transparent">
+                <a href="\(url)" onclick="\(click)" style="display:flex;box-sizing:border-box;height:28px;overflow:hidden;text-decoration:none;cursor:pointer;padding:2px 0;color:#fff;align-items:center;gap:7px;border-radius:0;background:transparent">
                   <span style="flex:0 0 auto;font-size:17px;line-height:1">\(dot)</span>
                   <span style="display:flex;min-width:0;flex:1;align-items:baseline;gap:6px;white-space:nowrap;overflow:hidden"><span style="color:#fff;font-size:13px;font-weight:750;overflow:hidden;text-overflow:ellipsis">\(esc(r.title))</span><span style="color:#8e8e93;font-size:11px;overflow:hidden;text-overflow:ellipsis">\(esc(r.sourceLabel)) · \(esc(r.body))</span>\(countBadge)</span>\(remaining)
                 </a>
                 """
             } else if compact {
                 out += """
-                <a href="\(url)" style="display:block;box-sizing:border-box;height:78px;overflow:hidden;text-decoration:none;cursor:pointer;padding:7px 9px;border-radius:10px;border:1px solid #3a3a3c;background:rgba(255,255,255,0.045);color:#fff">
+                <a href="\(url)" onclick="\(click)" style="display:block;box-sizing:border-box;height:78px;overflow:hidden;text-decoration:none;cursor:pointer;padding:7px 9px;border-radius:10px;border:1px solid #3a3a3c;background:rgba(255,255,255,0.045);color:#fff">
                   <div style="display:block;color:#9a9aa0;font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:4px">\(esc(r.sourceLabel))</div>
                   <div style="display:block;color:#fff;font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">\(dot) \(esc(r.title))\(countBadge)</div>
                   <div style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;color:#d6d6d8;font-size:12px;line-height:1.2;margin-top:4px">\(esc(r.body))</div>
@@ -50,7 +51,7 @@ public enum InboxHTMLRenderer {
                 """
             } else {
                 out += """
-                <a href="\(url)" style="display:block;text-decoration:none;cursor:pointer;padding:7px;border-radius:8px;border:1px solid #333;background:rgba(255,255,255,0.035);margin-bottom:6px;color:#fff">
+                <a href="\(url)" onclick="\(click)" style="display:block;text-decoration:none;cursor:pointer;padding:7px;border-radius:8px;border:1px solid #333;background:rgba(255,255,255,0.035);margin-bottom:6px;color:#fff">
                   <div style="font-weight:600"><span style="color:#8e8e93;font-size:11px">\(esc(r.sourceLabel))</span> \(dot) \(esc(r.title))\(countBadge)</div>
                   <div style="color:#aaa;font-size:12px">\(esc(r.subtitle))</div>
                   <div style="color:#ddd;font-size:13px;margin-top:2px">\(esc(r.body))</div>
@@ -68,8 +69,13 @@ public enum InboxHTMLRenderer {
         return out
     }
 
-    static func esc(_ s: String, forURL: Bool = false) -> String {
+    static func esc(_ s: String, forURL: Bool = false, forJavaScript: Bool = false) -> String {
         if forURL { return s.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? s }
+        if forJavaScript {
+            return s
+                .replacingOccurrences(of: "\\", with: "\\\\")
+                .replacingOccurrences(of: "'", with: "\\'")
+        }
         return s
             .replacingOccurrences(of: "&", with: "&amp;")
             .replacingOccurrences(of: "<", with: "&lt;")

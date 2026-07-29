@@ -20,7 +20,10 @@ public final class Store: @unchecked Sendable {
 
     public func markRead(id: String) {
         lock.lock(); defer { lock.unlock() }
-        // no-op read flag; see markGroupRead
+        if items.removeValue(forKey: id) != nil {
+            suppressedIDs.insert(id)
+            trimSuppressedLocked()
+        }
         onChange?(.connected)
     }
 
@@ -51,6 +54,18 @@ public final class Store: @unchecked Sendable {
     public func snapshot() -> [AgentNotification] {
         lock.lock(); defer { lock.unlock() }
         return items.values.sorted { $0.createdAt > $1.createdAt }
+    }
+
+    /// Individual unread notifications, newest first. This is used for compact
+    /// Atoll inbox rendering so repeated messages from one cmux surface remain
+    /// visible as separate rows instead of collapsing behind a count badge.
+    public func notificationRows() -> [RowViewModel] {
+        lock.lock(); defer { lock.unlock() }
+        return items.values.sorted { $0.createdAt > $1.createdAt }.map { n in
+            RowViewModel(id: n.id, sourceLabel: n.sourceLabel, title: n.title,
+                         subtitle: n.subtitle, body: n.body, unreadCount: 1,
+                         isPriority: n.priority == .high, jumpID: n.id)
+        }
     }
 
     /// Collapsed unread rows, highest-priority then newest first.

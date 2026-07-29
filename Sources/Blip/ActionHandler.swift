@@ -8,6 +8,16 @@ public final class ActionHandler: ActionRouting {
         self.store = store; self.jump = jump
     }
     public func activate(rowID: String) {
+        if let item = store.snapshot().first(where: { $0.id == rowID }) {
+            switch item.jump {
+            case .cmuxSurface(let w, let s): jump.openCmuxNotification(id: item.id, workspaceId: w, surfaceId: s)
+            case .openApp(let bid): jump.openApp(bundleId: bid)
+            case .none: break
+            }
+            store.markRead(id: item.id)
+            return
+        }
+
         guard let row = store.rows().first(where: { $0.id == rowID }) else { return }
         let newest = store.snapshot().first { $0.id == row.jumpID }
         switch newest?.jump {

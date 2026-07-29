@@ -39,6 +39,18 @@ final class ActionHandlerTests: XCTestCase {
         XCTAssertEqual(jump.openedNotification, "n2")
         XCTAssertEqual(jump.surface, "s1")
     }
+    func testActivateIndividualCmuxNotificationJumpsAndMarksOnlyThatNotificationRead() {
+        let store = Store(); let jump = Stub(); let action = ActionHandler(store: store, jump: jump)
+        store.upsert(AgentNotification(id:"n1", source:"cmux", title:"Old", body:"old", createdAt: Date(timeIntervalSince1970: 1), jump: .cmuxSurface(workspaceId:"w", surfaceId:"s")))
+        store.upsert(AgentNotification(id:"n2", source:"cmux", title:"New", body:"new", createdAt: Date(timeIntervalSince1970: 2), jump: .cmuxSurface(workspaceId:"w", surfaceId:"s")))
+
+        action.activate(rowID: "n1")
+
+        XCTAssertEqual(jump.openedNotification, "n1")
+        XCTAssertEqual(store.unreadCount, 1)
+        XCTAssertEqual(store.notificationRows().map(\.id), ["n2"])
+    }
+
     func testActivateUnknownRowIsNoop() {
         let store = Store(); let jump = Stub(); let action = ActionHandler(store: store, jump: jump)
         action.activate(rowID: "nope")

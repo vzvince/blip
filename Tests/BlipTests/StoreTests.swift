@@ -45,6 +45,33 @@ final class StoreTests: XCTestCase {
         XCTAssertTrue(s.rows().isEmpty)
     }
 
+    func testNotificationRowsShowEveryUnreadItemWithinSameSurface() {
+        let s = Store()
+        s.upsert(mk("1", "a", "first", 1))
+        s.upsert(mk("2", "a", "second", 2))
+        s.upsert(mk("3", "a", "third", 3))
+
+        let rows = s.notificationRows()
+
+        XCTAssertEqual(rows.map(\.id), ["3", "2", "1"], "Atoll inbox needs individual notification rows, not only one collapsed surface row")
+        XCTAssertEqual(rows.map(\.body), ["third", "second", "first"])
+        XCTAssertTrue(rows.allSatisfy { $0.unreadCount == 1 }, "individual rows should not display the collapsed group badge")
+    }
+
+    func testMarkReadRemovesAndSuppressesOneNotification() {
+        let s = Store()
+        let n1 = mk("1", "a", "first", 1)
+        let n2 = mk("2", "a", "second", 2)
+        s.upsert(n1)
+        s.upsert(n2)
+
+        s.markRead(id: "2")
+        s.upsert(n2)
+
+        XCTAssertEqual(s.unreadCount, 1, "handled notification should not be reimported by the next cmux poll")
+        XCTAssertEqual(s.notificationRows().map(\.id), ["1"])
+    }
+
     func testClearSuppressesFutureReimportOfCurrentItems() {
         let s = Store()
         let n = mk("1", "a", "x", 1)
