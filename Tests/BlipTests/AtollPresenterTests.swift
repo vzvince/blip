@@ -33,6 +33,44 @@ final class AtollPresenterTests: XCTestCase {
         func updateTab(_ d: AtollNotchExperienceDescriptor) async throws { updatedTab = true; updateTabCount += 1 }
         func dismissTab() async throws { dismissedTab = true; dismissTabCount += 1 }
     }
+
+    @MainActor
+    func testFallbackSessionUsesFallbackWhenPrimaryPresentActivityFails() async throws {
+        let primary = StubSession()
+        let fallback = StubSession()
+        primary.presentActivityError = NSError(domain: "rpc", code: -1005)
+        let session = AtollFallbackSession(primary: primary, fallback: fallback)
+
+        try await session.presentActivity(AtollDescriptors.collapsed(unreadCount: 1, latest: nil))
+
+        XCTAssertEqual(primary.presentActivityCount, 1)
+        XCTAssertEqual(fallback.presentActivityCount, 1, "Atoll RPC can accept then immediately drop 9020 connections; Blip must fall back to AtollExtensionKit/XPC instead of getting stuck")
+    }
+
+    @MainActor
+    func testFallbackSessionDoesNotUseFallbackWhenPrimarySucceeds() async throws {
+        let primary = StubSession()
+        let fallback = StubSession()
+        let session = AtollFallbackSession(primary: primary, fallback: fallback)
+
+        try await session.presentActivity(AtollDescriptors.collapsed(unreadCount: 1, latest: nil))
+
+        XCTAssertEqual(primary.presentActivityCount, 1)
+        XCTAssertEqual(fallback.presentActivityCount, 0)
+    }
+
+    @MainActor
+    func testFallbackSessionTriesFallbackForTabUpdatesToo() async throws {
+        let primary = StubSession()
+        let fallback = StubSession()
+        primary.presentTabError = NSError(domain: "rpc", code: -1005)
+        let session = AtollFallbackSession(primary: primary, fallback: fallback)
+
+        try await session.presentTab(AtollDescriptors.tab(rows: [], unreadCount: 0, port: 9042))
+
+        XCTAssertEqual(primary.presentTabCount, 1)
+        XCTAssertEqual(fallback.presentTabCount, 1)
+    }
     @MainActor
     func testIdlePresenterWithdrawsNothing() async {
         let p = AtollPresenter(session: StubSession(), port: 9042)

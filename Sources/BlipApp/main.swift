@@ -60,6 +60,45 @@ final class AtollRPCSessionAdapter: AtollPresenting {
 }
 
 @MainActor
+final class AtollHybridSessionAdapter: AtollPresenting {
+    private let rpc = AtollRPCSessionAdapter()
+    private let fallback: AtollSession
+    private let presenting: AtollFallbackSession
+
+    init(fallback: AtollSession = .shared) {
+        self.fallback = fallback
+        self.presenting = AtollFallbackSession(primary: rpc, fallback: fallback) { operation, error in
+            print("blip: Atoll RPC \(operation) failed; falling back to XPC — \(error)")
+        }
+    }
+
+    func requestAuthorization() async throws -> Bool {
+        do {
+            return try await rpc.requestAuthorization()
+        } catch {
+            print("blip: Atoll RPC authorization failed; falling back to XPC — \(error)")
+            return try await fallback.requestAuthorization()
+        }
+    }
+
+    func checkAuthorization() async throws -> Bool {
+        do {
+            return try await rpc.checkAuthorization()
+        } catch {
+            print("blip: Atoll RPC checkAuthorization failed; falling back to XPC — \(error)")
+            return try await fallback.isAuthorized()
+        }
+    }
+
+    func presentActivity(_ d: AtollLiveActivityDescriptor) async throws { try await presenting.presentActivity(d) }
+    func updateActivity(_ d: AtollLiveActivityDescriptor) async throws { try await presenting.updateActivity(d) }
+    func dismissActivity() async throws { try await presenting.dismissActivity() }
+    func presentTab(_ d: AtollNotchExperienceDescriptor) async throws { try await presenting.presentTab(d) }
+    func updateTab(_ d: AtollNotchExperienceDescriptor) async throws { try await presenting.updateTab(d) }
+    func dismissTab() async throws { try await presenting.dismissTab() }
+}
+
+@MainActor
 final class BlipEngine: ObservableObject {
     @Published private(set) var unreadCount: Int = 0
 
@@ -89,7 +128,7 @@ final class BlipEngine: ObservableObject {
         let jump = CmuxJumpExecutor(rpc: cmux); self.jump = jump
         let action = ActionHandler(store: store, jump: jump); self.action = action
         let ingress = IngressServer(port: cfg.port, store: store, action: action); self.ingress = ingress
-        let atollAdapter = AtollRPCSessionAdapter()
+        let atollAdapter = AtollHybridSessionAdapter()
         let presenter = AtollPresenter(session: atollAdapter, port: cfg.port); self.presenter = presenter
         store.onChange = { [weak self] _ in
             Task { @MainActor in
@@ -129,7 +168,7 @@ final class BlipEngine: ObservableObject {
         }
     }
 
-    private func startAtollAuthorizationLoop(adapter: AtollRPCSessionAdapter) {
+    private func startAtollAuthorizationLoop(adapter: AtollHybridSessionAdapter) {
         Task { @MainActor in
             var attempt = 0
             while true {

@@ -4,7 +4,7 @@ import AppKit
 import AtollExtensionKit
 
 @MainActor
-public final class AtollSession {
+public final class AtollSession: AtollPresenting {
     public static let shared = AtollSession()
     public var onActivityDismiss: (() -> Void)?
     public var onTabDismiss: (() -> Void)?
