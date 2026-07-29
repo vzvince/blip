@@ -149,6 +149,20 @@ final class AtollDescriptorsTests: XCTestCase {
         XCTAssertLessThanOrEqual(webContent.preferredHeight, 170, "compact list should stay short enough for Atoll's clipped island")
     }
 
+    func testTabCompactListRequestsOnlyVisibleRowHeight() {
+        let rows = [
+            RowViewModel(id:"n1", sourceLabel:"Codex", title:"First", subtitle:"1m ago", body:"one", unreadCount: 1, isPriority: false, jumpID: "n1"),
+            RowViewModel(id:"n2", sourceLabel:"Claude", title:"Second", subtitle:"1m ago", body:"two", unreadCount: 1, isPriority: false, jumpID: "n2"),
+            RowViewModel(id:"n3", sourceLabel:"Aider", title:"Third", subtitle:"1m ago", body:"three", unreadCount: 1, isPriority: false, jumpID: "n3")
+        ]
+        let d = AtollDescriptors.tab(rows: rows, unreadCount: 3, port: 9042)
+
+        guard case .webView(let webContent)? = d.tab?.sections.first?.elements.first else {
+            return XCTFail("visible inbox content should be web content")
+        }
+        XCTAssertLessThanOrEqual(webContent.preferredHeight, 96, "Atoll's outer card is clipped and does not scroll; request only the compact visible row height")
+    }
+
     func testTabRequestsMaximumAtollHeightForReadableInbox() {
         let d = AtollDescriptors.tab(rows: [], unreadCount: 0, port: 9042)
 

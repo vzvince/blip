@@ -37,6 +37,22 @@ final class InboxHTMLRendererTests: XCTestCase {
         XCTAssertTrue(html.contains("text-overflow:ellipsis"), "long workspace labels should not push messages out of view")
     }
 
+    func testCompactRowsFitAtollClippedPanelWithoutNestedCardsOrScrolling() {
+        let rows = [
+            RowViewModel(id:"n1", sourceLabel:"global_notifications", title:"First", subtitle:"Waiting", body:"body one", unreadCount:1, isPriority:false, jumpID:"n1"),
+            RowViewModel(id:"n2", sourceLabel:"global_notifications", title:"Second", subtitle:"Waiting", body:"body two", unreadCount:1, isPriority:false, jumpID:"n2"),
+            RowViewModel(id:"n3", sourceLabel:"global_notifications", title:"Third", subtitle:"Waiting", body:"body three", unreadCount:1, isPriority:false, jumpID:"n3"),
+            RowViewModel(id:"n4", sourceLabel:"global_notifications", title:"Fourth", subtitle:"Waiting", body:"body four", unreadCount:1, isPriority:false, jumpID:"n4")
+        ]
+        let html = InboxHTMLRenderer.render(rows: rows, unreadCount: 4, port: 9042, includeHeader: false, compact: true)
+
+        XCTAssertTrue(html.contains("height:28px"), "Atoll clips embedded web views; compact rows must be thin enough for several rows to be visible without scrolling")
+        XCTAssertTrue(html.contains("+1 more"), "when rows are capped, the visible content should hint that more notifications exist")
+        XCTAssertFalse(html.contains("border:1px"), "avoid drawing a nested card inside Atoll's own card; the double border wastes visible height and makes clipping look broken")
+        XCTAssertTrue(html.contains("margin:0"), "reset default HTML/body margin so Atoll does not crop the first row")
+        XCTAssertFalse(html.contains("overflow:auto"), "Atoll nested web view scrolling is unreliable; compact content must not depend on scrolling")
+    }
+
     func testEmptyState() {
         let html = InboxHTMLRenderer.render(rows: [], unreadCount: 0, port: 9042)
         XCTAssertTrue(html.lowercased().contains("all clear"))

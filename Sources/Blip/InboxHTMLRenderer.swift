@@ -16,7 +16,9 @@ public enum InboxHTMLRenderer {
             """
         }
         let padding = compact ? "0" : "10px 12px"
+        let reset = compact ? "<style>html,body{margin:0;padding:0;background:transparent;overflow:hidden}</style>" : ""
         var out = """
+        \(reset)
         <div style="font-family:-apple-system;padding:\(padding);color:#fff;font-size:13px;line-height:1.25">
         """
         if includeHeader {
@@ -26,15 +28,16 @@ public enum InboxHTMLRenderer {
         }
         let visibleRows = compact ? Array(rows.prefix(3)) : rows
         let compactList = compact && visibleRows.count > 1
-        for r in visibleRows {
+        for (idx, r) in visibleRows.enumerated() {
             let url = "\(base)/jump?id=\(esc(r.id, forURL: true))"
             let dot = r.isPriority ? "🔴" : "🔵"
             let countBadge = r.unreadCount > 1 ? "<span style='background:#444;color:#fff;border-radius:8px;padding:1px 6px;font-size:11px;margin-left:6px'>\(esc(String(r.unreadCount)))</span>" : ""
             if compactList {
+                let remaining = idx == visibleRows.count - 1 && rows.count > visibleRows.count ? "<span style=\"flex:0 0 auto;color:#8e8e93;font-size:10px;font-weight:700;margin-left:4px\">+\(esc(String(rows.count - visibleRows.count))) more</span>" : ""
                 out += """
-                <a href="\(url)" style="display:block;box-sizing:border-box;height:44px;overflow:hidden;text-decoration:none;cursor:pointer;padding:5px 8px;border-radius:9px;border:1px solid #333;background:rgba(255,255,255,0.04);color:#fff;margin-bottom:4px">
-                  <div style="display:flex;gap:6px;align-items:center;min-width:0;color:#fff;font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><span>\(dot)</span><span style="overflow:hidden;text-overflow:ellipsis">\(esc(r.title))</span>\(countBadge)</div>
-                  <div style="display:block;color:#a7a7ad;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px">\(esc(r.sourceLabel)) · \(esc(r.body))</div>
+                <a href="\(url)" style="display:flex;box-sizing:border-box;height:28px;overflow:hidden;text-decoration:none;cursor:pointer;padding:2px 0;color:#fff;align-items:center;gap:7px;border-radius:0;background:transparent">
+                  <span style="flex:0 0 auto;font-size:17px;line-height:1">\(dot)</span>
+                  <span style="display:flex;min-width:0;flex:1;align-items:baseline;gap:6px;white-space:nowrap;overflow:hidden"><span style="color:#fff;font-size:13px;font-weight:750;overflow:hidden;text-overflow:ellipsis">\(esc(r.title))</span><span style="color:#8e8e93;font-size:11px;overflow:hidden;text-overflow:ellipsis">\(esc(r.sourceLabel)) · \(esc(r.body))</span>\(countBadge)</span>\(remaining)
                 </a>
                 """
             } else if compact {

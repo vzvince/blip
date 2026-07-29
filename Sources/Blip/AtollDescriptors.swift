@@ -59,7 +59,11 @@ public enum AtollDescriptors {
         } else if visibleRowCount == 1 {
             preferredHeight = 86
         } else {
-            preferredHeight = Double(visibleRowCount * 48 + 12)
+            // Atoll wraps section web views inside its own padded card and does not
+            // reliably scroll nested WKWebViews. Keep multi-row compact content to
+            // the exact visible row footprint instead of asking for a tall inner card
+            // that gets clipped by the island panel.
+            preferredHeight = Double(visibleRowCount * 28 + 4)
         }
         return AtollWidgetWebContentDescriptor(
             html: InboxHTMLRenderer.render(rows: rows, unreadCount: unreadCount, port: port, includeHeader: false, compact: true),
