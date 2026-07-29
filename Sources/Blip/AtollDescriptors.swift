@@ -42,7 +42,7 @@ public enum AtollDescriptors {
                 badgeIcon: appIcon,
                 preferredHeight: 420,
                 sections: nativeSections(rows: rows, unreadCount: unreadCount, port: port),
-                webContent: nil,
+                webContent: rows.isEmpty ? nil : interactiveInbox(rows: rows, unreadCount: unreadCount, port: port),
                 allowWebInteraction: true,
                 footnote: rows.isEmpty ? "Blip is running in the menu bar" : nil
             ),
@@ -52,18 +52,15 @@ public enum AtollDescriptors {
     }
 
     private static func interactiveInbox(rows: [RowViewModel], unreadCount: Int, port: Int) -> AtollWidgetWebContentDescriptor {
-        let visibleRowCount = min(rows.count, 3)
         let preferredHeight: Double
         if rows.isEmpty {
             preferredHeight = 120
-        } else if visibleRowCount == 1 {
-            preferredHeight = 86
         } else {
-            // Atoll wraps section web views inside its own padded card and does not
-            // reliably scroll nested WKWebViews. Keep multi-row compact content to
-            // the exact visible row footprint instead of asking for a tall inner card
-            // that gets clipped by the island panel.
-            preferredHeight = Double(visibleRowCount * 28 + 4)
+            // Use top-level TabConfiguration.webContent for interaction. Inline
+            // section webViews are embedded in Atoll's padded card slot, which is
+            // clipped and does not reliably scroll. Top-level content can occupy
+            // enough of the expanded tab to show complete rows.
+            preferredHeight = 220
         }
         return AtollWidgetWebContentDescriptor(
             html: InboxHTMLRenderer.render(rows: rows, unreadCount: unreadCount, port: port, includeHeader: false, compact: true),
@@ -81,20 +78,19 @@ public enum AtollDescriptors {
             elements = [
                 .text("All clear — no pending notifications", font: .system(size: 12, weight: .regular), color: .gray)
             ]
-        } else {
-            elements = [
-                .webView(interactiveInbox(rows: rows, unreadCount: unreadCount, port: port))
+            return [
+                AtollNotchContentSection(
+                    id: "blip.native.inbox",
+                    title: "All clear",
+                    subtitle: nil,
+                    layout: .stack,
+                    elements: elements
+                )
             ]
         }
 
-        return [
-            AtollNotchContentSection(
-                id: "blip.native.inbox",
-                title: rows.isEmpty ? "All clear" : nil,
-                subtitle: nil,
-                layout: .stack,
-                elements: elements
-            )
-        ]
+        // Non-empty inbox content must live in tab.webContent. Section webViews are
+        // clipped inside Atoll's card renderer, producing a non-scrollable half-row.
+        return []
     }
 }
